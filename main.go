@@ -20,6 +20,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	listener.CompileRegistryMap("config.yaml")
 
 	kafkaClient, err := startKafkaStream(settings)
 	if err != nil {
@@ -32,11 +33,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	rewardClient, err := NewRewardContractListener(listener, producer, &logger)
-	randomContract, err := NewRandomContractListener(listener, producer, &logger)
+	issuanceClient, err := NewIssuanceContractListener(listener, producer, &logger)
 
-	go rewardClient.RewardContractListener()
-	// random contract here bc its more active than ours and is easier to test with
-	randomContract.RandomContractListener()
+	issuanceClient.IssuanceContractIndexer()
 
 }

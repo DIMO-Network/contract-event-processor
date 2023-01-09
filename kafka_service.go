@@ -4,6 +4,12 @@ import (
 	"github.com/Shopify/sarama"
 )
 
+type Event struct {
+	Contract  string
+	Sig       string
+	Arguments map[string]any
+}
+
 func startKafkaStream(s Settings) (sarama.Client, error) {
 
 	config := sarama.NewConfig()
