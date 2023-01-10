@@ -5,9 +5,11 @@ import (
 )
 
 type Event struct {
-	Contract  string
-	Sig       string
-	Arguments map[string]any
+	Contract        string
+	TransactionHash string
+	Arguments       map[string]any
+	BlockCompleted  bool
+	EventSignature  string
 }
 
 func startKafkaStream(s Settings) (sarama.Client, error) {
