@@ -1,19 +1,21 @@
 version: '3.9'
 
 services:
-  redis:
-    image: redis:6.2
-    container_name: redis-devices-api
+  db:
+    container_name: db
+    image: postgres:11.3
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
     ports:
-      - "6379:6379"
-
+      - 5432:5432
   zookeeper:
     image: 'wurstmeister/zookeeper:latest'
     ports:
       - '2181:2181'
     environment:
       - ALLOW_ANONYMOUS_LOGIN=yes
-
   kafka:
     image: 'wurstmeister/kafka:latest'
     ports:
