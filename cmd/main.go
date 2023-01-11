@@ -24,6 +24,7 @@ func main() {
 		case "migrate":
 			command := "up"
 			migrateDatabase(logger, &settings, command, "chain_indexer")
+			return
 		case "override":
 			if len(os.Args) > 2 {
 				n, err := strconv.Atoi(os.Args[2])

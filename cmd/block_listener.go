@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -33,19 +34,21 @@ import (
 )
 
 type Settings struct {
-	Contracts          []string `yaml:"CONTRACTS"`
-	WebSocketAddress   string   `yaml:"WEB_SOCKET_ADDRESS"`
-	AlchemyAPIKey      string   `yaml:"API_KEY"`
-	DIMORewardContract string   `yaml:"DIMO_REWARDS_CONTRACT"`
-	EventStreamTopic   string   `yaml:"EVENT_STREAM_TOPIC"`
-	Partitions         int      `yaml:"PARTITIONS"`
-	KafkaBroker        string   `yaml:"KAFKA_BROKER"`
-	RandomContract     string   `yaml:"RANDOM_CONTRACT"`
-	PostgresUser       string   `yaml:"POSTGRES_USER"`
-	PostgresPassword   string   `yaml:"POSTGRES_PASSWORD"`
-	PostgresDB         string   `yaml:"POSTGRES_DB"`
-	PostgresHOST       string   `yaml:"POSTGRES_HOST"`
-	PostgresPort       int      `yaml:"POSTGRES_PORT"`
+	WebSocketAddress string `yaml:"WEB_SOCKET_ADDRESS"`
+	AlchemyAPIKey    string `yaml:"API_KEY"`
+
+	BlockConfirmations int `yaml:"BLOCK_CONFIRMATIONS"`
+
+	EventStreamTopic string `yaml:"EVENT_STREAM_TOPIC"`
+
+	KafkaBroker string `yaml:"KAFKA_BROKER"`
+	Partitions  int    `yaml:"PARTITIONS"`
+
+	PostgresUser     string `yaml:"POSTGRES_USER"`
+	PostgresPassword string `yaml:"POSTGRES_PASSWORD"`
+	PostgresDB       string `yaml:"POSTGRES_DB"`
+	PostgresHOST     string `yaml:"POSTGRES_HOST"`
+	PostgresPort     int    `yaml:"POSTGRES_PORT"`
 }
 
 type BlockListener struct {
@@ -57,6 +60,7 @@ type BlockListener struct {
 	Registry         map[common.Address]map[common.Hash]*abi.Event
 	Confirmations    *big.Int
 	DB               *sql.DB
+	ABIs             map[common.Address]abi.ABI
 }
 
 type Config struct {
@@ -97,7 +101,7 @@ func NewBlockListener(s Settings, logger zerolog.Logger, producer sarama.SyncPro
 		EventStreamTopic: s.EventStreamTopic,
 		Logger:           logger,
 		Producer:         producer,
-		Confirmations:    big.NewInt(14), // pulled this standard from coinbase
+		Confirmations:    big.NewInt(int64(s.BlockConfirmations)),
 		DB:               pg,
 	}, nil
 }
@@ -112,6 +116,7 @@ func (bl *BlockListener) CompileRegistryMap(configPath string) {
 	err = yaml.Unmarshal(cb, &conf)
 
 	bl.Registry = make(map[common.Address]map[common.Hash]*abi.Event)
+	bl.ABIs = make(map[common.Address]abi.ABI)
 	for _, contract := range conf.Contracts {
 		bl.Contracts = append(bl.Contracts, contract.Address)
 		f, err := os.Open(contract.ABI)
@@ -124,6 +129,8 @@ func (bl *BlockListener) CompileRegistryMap(configPath string) {
 		if err != nil {
 			log.Fatal(err)
 		}
+
+		bl.ABIs[contract.Address] = a
 
 		for _, event := range a.Events {
 			if _, ok := bl.Registry[contract.Address]; !ok {
@@ -153,8 +160,7 @@ func (bl *BlockListener) GetBlock(blockNum *big.Int) (Block, error) {
 		return Block{}, err
 	}
 
-	latestBlock.Number = big.NewInt(resp.Number)
-	latestBlock.Hash = common.HexToHash(resp.Hash.String)
+	latestBlock.Number = big.NewInt(resp.Number + 1)
 
 	return latestBlock, nil
 }
@@ -201,7 +207,7 @@ func (bl *BlockListener) ChainIndexer(blockNum *big.Int) {
 
 	block, err := bl.GetBlock(blockNum)
 	if err != nil {
-		bl.Logger.Fatal().Int64("block number", blockNum.Int64()).Msgf("error fetching block: %v", err)
+		bl.Logger.Fatal().Int64("block number", blockNum.Int64()).Msgf("error fetching block from db: %v", err)
 	}
 
 	head, err := bl.Client.HeaderByNumber(context.Background(), new(big.Int).Sub(block.Number, bl.Confirmations))
@@ -209,7 +215,7 @@ func (bl *BlockListener) ChainIndexer(blockNum *big.Int) {
 		bl.Logger.Fatal().Int64("block number", blockNum.Int64()).Msgf("error fetching block head: %v", err)
 	}
 
-	bl.Logger.Info().Str("Block Head", block.Number.String()).Str("Currently Processing", head.Number.String()).Msg("Processing at head minus 14 to ensure confirmed transactions")
+	bl.Logger.Info().Str("blockHead", block.Number.String()).Str("currentlyProcessing", head.Number.String()).Msgf("processing at head minus %v to reduce likelihood of unconfirmed transactions", bl.Confirmations)
 
 	for {
 		select {
@@ -239,6 +245,11 @@ func (bl *BlockListener) ChainIndexer(blockNum *big.Int) {
 func (bl *BlockListener) ProcessBlock(client *ethclient.Client, head *types.Header) error {
 	log.Printf("Processing block %s", head.Number)
 	blockHash := head.Hash()
+	t, err := strconv.ParseInt(strconv.Itoa(int(head.Time)), 10, 64)
+	if err != nil {
+		return err
+	}
+	tm := time.Unix(t, 0).UTC()
 
 	fil := ethereum.FilterQuery{
 		BlockHash: &blockHash,
@@ -251,24 +262,21 @@ func (bl *BlockListener) ProcessBlock(client *ethclient.Client, head *types.Head
 
 	for _, vLog := range logs {
 		if vLog.Removed {
-			bl.Logger.Info().Uint64("Block Number", vLog.BlockNumber).Msg("Block removed due to chain reorganization")
+			bl.Logger.Info().Uint64("blockNumber", vLog.BlockNumber).Msg("Block removed due to chain reorganization")
 		}
 
 		if ev, ok := bl.Registry[vLog.Address][vLog.Topics[0]]; ok {
-
 			event := shared.CloudEvent[Event]{
 				ID:      ksuid.New().String(),
-				Source:  string(vLog.Address.String()),
+				Source:  head.Number.String(),
 				Subject: vLog.TxHash.String(),
-				Time:    time.Now().UTC(),
+				Time:    tm,
 				Data: Event{
 					Contract:        vLog.Address.String(),
 					TransactionHash: vLog.TxHash.String(),
 					EventSignature:  vLog.Topics[0].String(),
+					Arguments:       make(map[string]any),
 				}}
-
-			event.Data.Arguments = make(map[string]any)
-			err = ev.Inputs.UnpackIntoMap(event.Data.Arguments, vLog.Data)
 
 			var indexed abi.Arguments
 			for _, arg := range ev.Inputs {
@@ -276,18 +284,29 @@ func (bl *BlockListener) ProcessBlock(client *ethclient.Client, head *types.Head
 					indexed = append(indexed, arg)
 				}
 			}
-			// TODO AE-- topic slice looks odd, was getting mismatched length error before
-			// this needs to be improved
-			err = abi.ParseTopicsIntoMap(event.Data.Arguments, indexed, vLog.Topics[len(vLog.Topics)-len(indexed):])
+
+			err := bl.ABIs[vLog.Address].UnpackIntoMap(event.Data.Arguments, ev.Name, vLog.Data)
 			if err != nil {
 				log.Fatal(err)
 			}
 
+			if len(vLog.Topics[1:]) > 0 {
+				indexedArguments := make(map[string]any)
+				err = abi.ParseTopicsIntoMap(indexedArguments, indexed, vLog.Topics[1:])
+				if err != nil {
+					bl.Logger.Info().Str(bl.EventStreamTopic, ev.Name).Str("blockNumber", head.Number.String()).Str("contract", vLog.Address.String()).Str("event", vLog.TxHash.String()).Msg("unable to parse arguments")
+				}
+				for k, v := range indexedArguments {
+					event.Data.Arguments[k] = v
+				}
+			}
+
 			eBytes, _ := json.Marshal(event)
 			message := &sarama.ProducerMessage{Topic: bl.EventStreamTopic, Key: sarama.StringEncoder(ksuid.New().String()), Value: sarama.ByteEncoder(eBytes)}
-			_, _, err := bl.Producer.SendMessage(message)
+			_, _, err = bl.Producer.SendMessage(message)
 			if err != nil {
-				bl.Logger.Info().Str(bl.EventStreamTopic, ev.Name).Msgf("error sending event to stream: %v", err)
+				bl.Logger.Info().Str(bl.EventStreamTopic, ev.Name).Str("blockNumber", head.Number.String()).Str("contract", vLog.Address.String()).Str("event", vLog.TxHash.String()).Msgf("error sending event to stream: %v", err)
+				return err
 			}
 
 		}
@@ -295,8 +314,9 @@ func (bl *BlockListener) ProcessBlock(client *ethclient.Client, head *types.Head
 
 	event := shared.CloudEvent[Event]{
 		ID:      ksuid.New().String(),
+		Source:  head.Number.String(),
 		Subject: blockHash.String(),
-		Time:    time.Now().UTC(),
+		Time:    tm,
 		Data: Event{
 			BlockCompleted: true,
 		}}
@@ -306,6 +326,7 @@ func (bl *BlockListener) ProcessBlock(client *ethclient.Client, head *types.Head
 	_, _, err = bl.Producer.SendMessage(message)
 	if err != nil {
 		bl.Logger.Info().Str("Block", head.Number.String()).Msgf("error sending block completion confirmation: %v", err)
+		return err
 	}
 
 	return nil
