@@ -2,19 +2,15 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"math/big"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
-	"github.com/DIMO-Network/shared"
 	"github.com/Shopify/sarama"
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -22,15 +18,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/rs/zerolog"
-	"github.com/segmentio/ksuid"
-	"github.com/volatiletech/null/v8"
-	"github.com/volatiletech/sqlboiler/v4/boil"
-	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 	"gopkg.in/yaml.v3"
 
 	_ "github.com/lib/pq"
-
-	"event-stream/models"
 )
 
 type Settings struct {
@@ -57,10 +47,10 @@ type BlockListener struct {
 	Logger           zerolog.Logger
 	Producer         sarama.SyncProducer
 	EventStreamTopic string
-	Registry         map[common.Address]map[common.Hash]*abi.Event
-	Confirmations    *big.Int
-	DB               *sql.DB
-	ABIs             map[common.Address]abi.ABI
+	// Registry         map[common.Address]map[common.Hash]*abi.Event
+	Confirmations *big.Int
+	// DB               *sql.DB
+	ABIs map[common.Address]*abi.ABI
 }
 
 type Config struct {
@@ -83,18 +73,18 @@ func NewBlockListener(s Settings, logger zerolog.Logger, producer sarama.SyncPro
 		return BlockListener{}, err
 	}
 
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
-		"password=%s dbname=%s sslmode=disable",
-		s.PostgresHOST, s.PostgresPort, s.PostgresUser, s.PostgresPassword, s.PostgresDB)
+	// psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
+	// 	"password=%s dbname=%s sslmode=disable",
+	// 	s.PostgresHOST, s.PostgresPort, s.PostgresUser, s.PostgresPassword, s.PostgresDB)
 
-	pg, err := sql.Open("postgres", psqlInfo)
-	if err != nil {
-		return BlockListener{}, err
-	}
-	err = pg.Ping()
-	if err != nil {
-		return BlockListener{}, err
-	}
+	// pg, err := sql.Open("postgres", psqlInfo)
+	// if err != nil {
+	// 	return BlockListener{}, err
+	// }
+	// err = pg.Ping()
+	// if err != nil {
+	// 	return BlockListener{}, err
+	// }
 
 	return BlockListener{
 		Client:           c,
@@ -102,7 +92,7 @@ func NewBlockListener(s Settings, logger zerolog.Logger, producer sarama.SyncPro
 		Logger:           logger,
 		Producer:         producer,
 		Confirmations:    big.NewInt(int64(s.BlockConfirmations)),
-		DB:               pg,
+		// DB:               pg,
 	}, nil
 }
 
@@ -115,8 +105,8 @@ func (bl *BlockListener) CompileRegistryMap(configPath string) {
 
 	err = yaml.Unmarshal(cb, &conf)
 
-	bl.Registry = make(map[common.Address]map[common.Hash]*abi.Event)
-	bl.ABIs = make(map[common.Address]abi.ABI)
+	// bl.Registry = make(map[common.Address]map[common.Hash]*abi.Event)
+	bl.ABIs = make(map[common.Address]*abi.ABI)
 	for _, contract := range conf.Contracts {
 		bl.Contracts = append(bl.Contracts, contract.Address)
 		f, err := os.Open(contract.ABI)
@@ -130,39 +120,32 @@ func (bl *BlockListener) CompileRegistryMap(configPath string) {
 			log.Fatal(err)
 		}
 
-		bl.ABIs[contract.Address] = a
-
-		for _, event := range a.Events {
-			if _, ok := bl.Registry[contract.Address]; !ok {
-				bl.Registry[contract.Address] = make(map[common.Hash]*abi.Event)
-			}
-			bl.Registry[contract.Address][event.ID] = &event
-		}
+		bl.ABIs[contract.Address] = &a
 	}
 
 }
 
 // fetch the most recently indexed block or return latest block
 func (bl *BlockListener) GetBlock(blockNum *big.Int) (Block, error) {
-	latestBlock := Block{
-		Number: new(big.Int),
-	}
+	// latestBlock := Block{
+	// 	Number: new(big.Int),
+	// }
 
 	if blockNum != nil {
 		return bl.GetBlockByNumber(blockNum)
 	}
 
-	resp, err := models.Blocks(qm.OrderBy(models.BlockColumns.Number+" DESC")).One(context.Background(), bl.DB)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return bl.GetBlockByNumber(nil)
-		}
-		return Block{}, err
-	}
+	// resp, err := models.Blocks(qm.OrderBy(models.BlockColumns.Number+" DESC")).One(context.Background(), bl.DB)
+	// if err != nil {
+	// 	if errors.Is(err, sql.ErrNoRows) {
+	return bl.GetBlockByNumber(nil)
+	// 	}
+	// 	return Block{}, err
+	// }
 
-	latestBlock.Number = big.NewInt(resp.Number + 1)
+	// latestBlock.Number = big.NewInt(resp.Number + 1)
 
-	return latestBlock, nil
+	// return latestBlock, nil
 }
 
 func (bl *BlockListener) GetBlockByNumber(blockNum *big.Int) (Block, error) {
@@ -186,13 +169,14 @@ func (bl *BlockListener) GetNextBlock(block *types.Header) (*types.Header, error
 
 // fetch the current block that hasn't yet been indexed
 func (bl *BlockListener) RecordBlock(block *types.Header) error {
-	processedBlock := models.Block{
-		Number:    block.Number.Int64(),
-		Hash:      null.StringFrom(block.Hash().String()),
-		Processed: null.BoolFrom(true),
-	}
+	// processedBlock := models.Block{
+	// 	Number:    block.Number.Int64(),
+	// 	Hash:      null.StringFrom(block.Hash().String()),
+	// 	Processed: null.BoolFrom(true),
+	// }
 
-	return processedBlock.Insert(context.Background(), bl.DB, boil.Infer())
+	// return processedBlock.Insert(context.Background(), bl.DB, boil.Infer())
+	return nil
 }
 
 func (bl *BlockListener) ChainIndexer(blockNum *big.Int) {
@@ -245,11 +229,11 @@ func (bl *BlockListener) ChainIndexer(blockNum *big.Int) {
 func (bl *BlockListener) ProcessBlock(client *ethclient.Client, head *types.Header) error {
 	log.Printf("Processing block %s", head.Number)
 	blockHash := head.Hash()
-	t, err := strconv.ParseInt(strconv.Itoa(int(head.Time)), 10, 64)
-	if err != nil {
-		return err
-	}
-	tm := time.Unix(t, 0).UTC()
+	// t, err := strconv.ParseInt(strconv.Itoa(int(head.Time)), 10, 64)
+	// if err != nil {
+	// 	return err
+	// }
+	// tm := time.Unix(t, 0).UTC()
 
 	fil := ethereum.FilterQuery{
 		BlockHash: &blockHash,
@@ -265,18 +249,18 @@ func (bl *BlockListener) ProcessBlock(client *ethclient.Client, head *types.Head
 			bl.Logger.Info().Uint64("blockNumber", vLog.BlockNumber).Msg("Block removed due to chain reorganization")
 		}
 
-		if ev, ok := bl.Registry[vLog.Address][vLog.Topics[0]]; ok {
-			event := shared.CloudEvent[Event]{
-				ID:      ksuid.New().String(),
-				Source:  head.Number.String(),
-				Subject: vLog.TxHash.String(),
-				Time:    tm,
-				Data: Event{
-					Contract:        vLog.Address.String(),
-					TransactionHash: vLog.TxHash.String(),
-					EventSignature:  vLog.Topics[0].String(),
-					Arguments:       make(map[string]any),
-				}}
+		if ev, err1 := bl.ABIs[vLog.Address].EventByID(vLog.Topics[0]); err1 == nil {
+			// event := shared.CloudEvent[Event]{
+			// 	ID:      ksuid.New().String(),
+			// 	Source:  head.Number.String(),
+			// 	Subject: vLog.TxHash.String(),
+			// 	Time:    tm,
+			// 	Data: Event{
+			// 		Contract:        vLog.Address.String(),
+			// 		TransactionHash: vLog.TxHash.String(),
+			// 		EventSignature:  vLog.Topics[0].String(),
+			// 		Arguments:       make(map[string]any),
+			// 	}}
 
 			var indexed abi.Arguments
 			for _, arg := range ev.Inputs {
@@ -285,48 +269,33 @@ func (bl *BlockListener) ProcessBlock(client *ethclient.Client, head *types.Head
 				}
 			}
 
-			err := bl.ABIs[vLog.Address].UnpackIntoMap(event.Data.Arguments, ev.Name, vLog.Data)
+			args := map[string]any{}
+
+			err := ev.Inputs.UnpackIntoMap(args, vLog.Data)
 			if err != nil {
 				log.Fatal(err)
 			}
 
-			if len(vLog.Topics[1:]) > 0 {
-				indexedArguments := make(map[string]any)
-				err = abi.ParseTopicsIntoMap(indexedArguments, indexed, vLog.Topics[1:])
-				if err != nil {
-					bl.Logger.Info().Str(bl.EventStreamTopic, ev.Name).Str("blockNumber", head.Number.String()).Str("contract", vLog.Address.String()).Str("event", vLog.TxHash.String()).Msg("unable to parse arguments")
-				}
-				for k, v := range indexedArguments {
-					event.Data.Arguments[k] = v
-				}
-			}
-
-			eBytes, _ := json.Marshal(event)
-			message := &sarama.ProducerMessage{Topic: bl.EventStreamTopic, Key: sarama.StringEncoder(ksuid.New().String()), Value: sarama.ByteEncoder(eBytes)}
-			_, _, err = bl.Producer.SendMessage(message)
+			err = abi.ParseTopicsIntoMap(args, indexed, vLog.Topics[1:])
 			if err != nil {
-				bl.Logger.Info().Str(bl.EventStreamTopic, ev.Name).Str("blockNumber", head.Number.String()).Str("contract", vLog.Address.String()).Str("event", vLog.TxHash.String()).Msgf("error sending event to stream: %v", err)
-				return err
+				fmt.Println("XDD", ev, vLog)
+				log.Fatal(err)
 			}
 
+			// eBytes, _ := json.Marshal(event)
+			// message := &sarama.ProducerMessage{Topic: bl.EventStreamTopic, Key: sarama.StringEncoder(ksuid.New().String()), Value: sarama.ByteEncoder(eBytes)}
+			b, err := json.MarshalIndent(args, "", "  ")
+			fmt.Print(ev.Name + " ")
+			fmt.Println(string(b))
+			// _, _, err = bl.Producer.SendMessage(message)
+			// if err != nil {
+			// 	bl.Logger.Info().Str(bl.EventStreamTopic, ev.Name).Str("blockNumber", head.Number.String()).Str("contract", vLog.Address.String()).Str("event", vLog.TxHash.String()).Msgf("error sending event to stream: %v", err)
+			// 	return err
+			// }
+
+		} else {
+			log.Printf("Error: %v", err1)
 		}
-	}
-
-	event := shared.CloudEvent[Event]{
-		ID:      ksuid.New().String(),
-		Source:  head.Number.String(),
-		Subject: blockHash.String(),
-		Time:    tm,
-		Data: Event{
-			BlockCompleted: true,
-		}}
-
-	eBytes, _ := json.Marshal(event)
-	message := &sarama.ProducerMessage{Topic: bl.EventStreamTopic, Key: sarama.StringEncoder(ksuid.New().String()), Value: sarama.ByteEncoder(eBytes)}
-	_, _, err = bl.Producer.SendMessage(message)
-	if err != nil {
-		bl.Logger.Info().Str("Block", head.Number.String()).Msgf("error sending block completion confirmation: %v", err)
-		return err
 	}
 
 	return nil

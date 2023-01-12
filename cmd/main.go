@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/DIMO-Network/shared"
-	"github.com/Shopify/sarama"
 	"github.com/rs/zerolog"
 )
 
@@ -29,26 +28,29 @@ func main() {
 			if len(os.Args) > 2 {
 				n, err := strconv.Atoi(os.Args[2])
 				if err != nil {
-					logger.Fatal().Err(err)
+					logger.Fatal().Err(err).Msg("XDD")
 				}
 				blockNum = big.NewInt(int64(n))
+				logger.Info().Msgf("XDD2 %s", blockNum)
 
 			}
 		}
 	}
 
-	kafkaClient, err := startKafkaStream(settings)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer kafkaClient.Close()
+	// kafkaClient, err := startKafkaStream(settings)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// defer kafkaClient.Close()
 
-	producer, err := sarama.NewSyncProducerFromClient(kafkaClient)
-	if err != nil {
-		log.Fatal(err)
-	}
+	// producer, err := sarama.NewSyncProducerFromClient(kafkaClient)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
-	listener, err := NewBlockListener(settings, logger, producer)
+	logger.Info().Msg("XFF")
+
+	listener, err := NewBlockListener(settings, logger, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
