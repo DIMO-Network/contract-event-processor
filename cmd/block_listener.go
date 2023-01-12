@@ -270,6 +270,7 @@ func (bl *BlockListener) ProcessBlock(client *ethclient.Client, head *types.Head
 				Subject: vLog.TxHash.String(),
 				Time:    tm,
 				Data: Event{
+					EventName:       ev.Name,
 					Contract:        vLog.Address.String(),
 					TransactionHash: vLog.TxHash.String(),
 					EventSignature:  vLog.Topics[0].String(),
@@ -285,18 +286,12 @@ func (bl *BlockListener) ProcessBlock(client *ethclient.Client, head *types.Head
 
 			err := bl.ABIs[vLog.Address].UnpackIntoMap(event.Data.Arguments, ev.Name, vLog.Data)
 			if err != nil {
-				log.Fatal(err)
+				bl.Logger.Info().Str(bl.EventStreamTopic, ev.Name).Str("blockNumber", head.Number.String()).Str("contract", vLog.Address.String()).Str("event", vLog.TxHash.String()).Msg("unable to parse non-indexed arguments")
 			}
 
-			if len(vLog.Topics[1:]) > 0 {
-				indexedArguments := make(map[string]any)
-				err = abi.ParseTopicsIntoMap(indexedArguments, indexed, vLog.Topics[1:])
-				if err != nil {
-					bl.Logger.Info().Str(bl.EventStreamTopic, ev.Name).Str("blockNumber", head.Number.String()).Str("contract", vLog.Address.String()).Str("event", vLog.TxHash.String()).Msg("unable to parse arguments")
-				}
-				for k, v := range indexedArguments {
-					event.Data.Arguments[k] = v
-				}
+			err = abi.ParseTopicsIntoMap(event.Data.Arguments, indexed, vLog.Topics[1:])
+			if err != nil {
+				bl.Logger.Info().Str(bl.EventStreamTopic, ev.Name).Str("blockNumber", head.Number.String()).Str("contract", vLog.Address.String()).Str("event", vLog.TxHash.String()).Msg("unable to parse indexed arguments")
 			}
 
 			eBytes, _ := json.Marshal(event)
@@ -304,7 +299,6 @@ func (bl *BlockListener) ProcessBlock(client *ethclient.Client, head *types.Head
 			_, _, err = bl.Producer.SendMessage(message)
 			if err != nil {
 				bl.Logger.Info().Str(bl.EventStreamTopic, ev.Name).Str("blockNumber", head.Number.String()).Str("contract", vLog.Address.String()).Str("event", vLog.TxHash.String()).Msgf("error sending event to stream: %v", err)
-				return err
 			}
 
 		}
