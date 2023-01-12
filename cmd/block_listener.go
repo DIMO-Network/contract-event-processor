@@ -57,7 +57,7 @@ type BlockListener struct {
 	Logger           zerolog.Logger
 	Producer         sarama.SyncProducer
 	EventStreamTopic string
-	Registry         map[common.Address]map[common.Hash]*abi.Event
+	Registry         map[common.Address]map[common.Hash]abi.Event
 	Confirmations    *big.Int
 	DB               *sql.DB
 	ABIs             map[common.Address]abi.ABI
@@ -115,7 +115,7 @@ func (bl *BlockListener) CompileRegistryMap(configPath string) {
 
 	err = yaml.Unmarshal(cb, &conf)
 
-	bl.Registry = make(map[common.Address]map[common.Hash]*abi.Event)
+	bl.Registry = make(map[common.Address]map[common.Hash]abi.Event)
 	bl.ABIs = make(map[common.Address]abi.ABI)
 	for _, contract := range conf.Contracts {
 		bl.Contracts = append(bl.Contracts, contract.Address)
@@ -131,12 +131,10 @@ func (bl *BlockListener) CompileRegistryMap(configPath string) {
 		}
 
 		bl.ABIs[contract.Address] = a
+		bl.Registry[contract.Address] = make(map[common.Hash]abi.Event)
 
 		for _, event := range a.Events {
-			if _, ok := bl.Registry[contract.Address]; !ok {
-				bl.Registry[contract.Address] = make(map[common.Hash]*abi.Event)
-			}
-			bl.Registry[contract.Address][event.ID] = &event
+			bl.Registry[contract.Address][event.ID] = event
 		}
 	}
 
