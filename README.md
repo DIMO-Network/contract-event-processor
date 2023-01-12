@@ -34,7 +34,7 @@ The default number of block confirmations used for this service is 5. This numbe
 
 [Events](https://github.com/DIMO-Network/contract-event-stream/blob/main/cmd/kafka_service.go#L7-L14) are wrapped in a [CloudEvent](https://github.com/cloudevents/spec/blob/v1.0.2/cloudevents/spec.md#example) and include information on the event contract, transaction hash and arguments as well as the event signature and event name. When a block has finished processing a final [Block Completed event](https://github.com/DIMO-Network/contract-event-stream/blob/main/cmd/block_listener.go#L313-L319) is sent to the stream.
 
-```
+```sh
 			event := shared.CloudEvent[Event]{
                 # Unique identifier for each event
 				ID:      ksuid.New().String(),
