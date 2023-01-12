@@ -133,6 +133,7 @@ func (bl *BlockListener) CompileRegistryMap(configPath string) {
 		bl.ABIs[contract.Address] = a
 
 		for _, event := range a.Events {
+			event := event
 			if _, ok := bl.Registry[contract.Address]; !ok {
 				bl.Registry[contract.Address] = make(map[common.Hash]*abi.Event)
 			}
