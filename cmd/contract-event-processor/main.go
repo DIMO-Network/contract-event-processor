@@ -6,6 +6,8 @@ import (
 	"os"
 	"strconv"
 
+	"event-stream/cmd/services"
+
 	"github.com/DIMO-Network/shared"
 	"github.com/Shopify/sarama"
 	"github.com/rs/zerolog"
@@ -13,7 +15,7 @@ import (
 
 func main() {
 	logger := zerolog.New(os.Stdout).With().Timestamp().Str("app", "event-stream-processor").Logger()
-	settings, err := shared.LoadConfig[Settings]("settings.yaml")
+	settings, err := shared.LoadConfig[services.Settings]("settings.yaml")
 	if err != nil {
 		logger.Fatal().Err(err)
 	}
@@ -23,7 +25,7 @@ func main() {
 		switch subCommand := os.Args[1]; subCommand {
 		case "migrate":
 			command := "up"
-			migrateDatabase(logger, &settings, command, "chain_indexer")
+			services.MigrateDatabase(logger, &settings, command, "chain_indexer")
 			return
 		case "override":
 			if len(os.Args) > 2 {
@@ -37,7 +39,7 @@ func main() {
 		}
 	}
 
-	kafkaClient, err := startKafkaStream(settings)
+	kafkaClient, err := services.StartKafkaStream(settings)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -48,7 +50,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	listener, err := NewBlockListener(settings, logger, producer)
+	listener, err := services.NewBlockListener(settings, logger, producer)
 	if err != nil {
 		log.Fatal(err)
 	}

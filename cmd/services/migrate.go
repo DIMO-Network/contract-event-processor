@@ -1,4 +1,4 @@
-package main
+package services
 
 import (
 	"database/sql"
@@ -10,7 +10,7 @@ import (
 	_ "github.com/lib/pq"
 )
 
-func migrateDatabase(logger zerolog.Logger, s *Settings, command, schemaName string) {
+func MigrateDatabase(logger zerolog.Logger, s *Settings, command, schemaName string) {
 	// setup database
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
 		"password=%s dbname=%s sslmode=disable",

@@ -1,4 +1,4 @@
-package main
+package services
 
 import (
 	"github.com/Shopify/sarama"
@@ -13,7 +13,7 @@ type Event struct {
 	EventName       string         `json:"eventName,omitempty"`
 }
 
-func startKafkaStream(s Settings) (sarama.Client, error) {
+func StartKafkaStream(s Settings) (sarama.Client, error) {
 
 	config := sarama.NewConfig()
 	config.Producer.Return.Successes = true

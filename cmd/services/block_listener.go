@@ -1,4 +1,4 @@
-package main
+package services
 
 import (
 	"context"
@@ -141,40 +141,28 @@ func (bl *BlockListener) CompileRegistryMap(configPath string) {
 }
 
 // fetch the most recently indexed block or return latest block
-func (bl *BlockListener) GetBlock(blockNum *big.Int) (Block, error) {
-	latestBlock := Block{
-		Number: new(big.Int),
-	}
+func (bl *BlockListener) GetBlockHead(blockNum *big.Int) (*types.Header, error) {
 
 	if blockNum != nil {
-		return bl.GetBlockByNumber(blockNum)
+		bl.Logger.Info().Int64("block number", blockNum.Int64()).Msgf("setting block head to passed value: %v", blockNum.Int64())
+		return bl.Client.HeaderByNumber(context.Background(), blockNum)
 	}
 
 	resp, err := models.Blocks(qm.OrderBy(models.BlockColumns.Number+" DESC")).One(context.Background(), bl.DB)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return bl.GetBlockByNumber(nil)
+			bl.Logger.Info().Msg("no value passed or found in db; setting block head to current head minus five")
+			h, e := bl.Client.HeaderByNumber(context.Background(), nil)
+			if e != nil {
+				return nil, e
+			}
+			return bl.Client.HeaderByNumber(context.Background(), new(big.Int).Sub(h.Number, bl.Confirmations))
 		}
-		return Block{}, err
+		return nil, err
 	}
 
-	latestBlock.Number = big.NewInt(resp.Number + 1)
-
-	return latestBlock, nil
-}
-
-func (bl *BlockListener) GetBlockByNumber(blockNum *big.Int) (Block, error) {
-	latestBlock := Block{
-		Number: new(big.Int),
-	}
-
-	head, err := bl.Client.HeaderByNumber(context.Background(), blockNum)
-	if err != nil {
-		return Block{}, err
-	}
-	latestBlock.Number = head.Number
-	latestBlock.Hash = head.Hash()
-	return latestBlock, nil
+	bl.Logger.Info().Int64("block number", resp.Number).Msgf("setting block head to most recently processed, found in db: %v", resp.Number)
+	return bl.Client.HeaderByNumber(context.Background(), big.NewInt(resp.Number))
 }
 
 // fetch the current block that hasn't yet been indexed
@@ -203,21 +191,15 @@ func (bl *BlockListener) ChainIndexer(blockNum *big.Int) {
 
 	fmt.Println("Running...")
 
-	block, err := bl.GetBlock(blockNum)
-	if err != nil {
-		bl.Logger.Fatal().Int64("block number", blockNum.Int64()).Msgf("error fetching block from db: %v", err)
-	}
-
-	head, err := bl.Client.HeaderByNumber(context.Background(), new(big.Int).Sub(block.Number, bl.Confirmations))
+	head, err := bl.GetBlockHead(blockNum)
 	if err != nil {
 		bl.Logger.Fatal().Int64("block number", blockNum.Int64()).Msgf("error fetching block head: %v", err)
 	}
 
-	bl.Logger.Info().Str("blockHead", block.Number.String()).Str("currentlyProcessing", head.Number.String()).Msgf("processing at head minus %v to reduce likelihood of unconfirmed transactions", bl.Confirmations)
-
 	for {
 		select {
 		case <-tick.C:
+
 			err = bl.ProcessBlock(bl.Client, head)
 			if err != nil {
 				log.Fatal(err)
