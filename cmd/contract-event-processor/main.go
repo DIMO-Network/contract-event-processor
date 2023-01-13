@@ -6,7 +6,7 @@ import (
 	"os"
 	"strconv"
 
-	"event-stream/cmd/services"
+	services "event-stream/internal"
 
 	"github.com/DIMO-Network/shared"
 	"github.com/Shopify/sarama"
