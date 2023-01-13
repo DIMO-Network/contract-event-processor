@@ -160,8 +160,8 @@ func (bl *BlockListener) GetBlockHead(blockNum *big.Int) (*types.Header, error) 
 		return nil, err
 	}
 
-	bl.Logger.Info().Int64("block number", resp.Number).Msgf("setting block head to most recently processed, found in db: %v", resp.Number)
-	return bl.Client.HeaderByNumber(context.Background(), big.NewInt(resp.Number))
+	bl.Logger.Info().Int64("block number", resp.Number).Msgf("setting block head to most recently processed, found in db plus one: %v", resp.Number+1)
+	return bl.Client.HeaderByNumber(context.Background(), new(big.Int).Add(big.NewInt(resp.Number), big.NewInt(1)))
 }
 
 // fetch the current block that hasn't yet been indexed
@@ -248,6 +248,7 @@ func (bl *BlockListener) ProcessBlock(client *ethclient.Client, head *types.Head
 				ID:      ksuid.New().String(),
 				Source:  head.Number.String(),
 				Subject: vLog.TxHash.String(),
+				Type:    "dimoevent",
 				Time:    tm,
 				Data: Event{
 					EventName:       ev.Name,
@@ -288,6 +289,7 @@ func (bl *BlockListener) ProcessBlock(client *ethclient.Client, head *types.Head
 		ID:      ksuid.New().String(),
 		Source:  head.Number.String(),
 		Subject: blockHash.String(),
+		Type:    "blockcompleted",
 		Time:    tm,
 		Data: Event{
 			BlockCompleted: true,
