@@ -1,6 +1,6 @@
 WEB_SOCKET_ADDRESS: wss://polygon-mainnet.g.alchemy.com/v2/
 API_KEY:
-EVENT_STREAM_TOPIC: topic.event.stream
+EVENT_STREAM_TOPIC: topic.contract.event
 PARTITIONS: 1
 KAFKA_BROKER: localhost:9092
 POSTGRES_USER: postgres
@@ -9,3 +9,4 @@ POSTGRES_DB: postgres
 POSTGRES_HOST: localhost
 POSTGRES_PORT: 5432
 BLOCK_CONFIRMATIONS: 5
+MONITORING_PORT: 8888

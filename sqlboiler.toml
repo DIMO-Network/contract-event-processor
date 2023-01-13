@@ -1,5 +1,5 @@
 [psql]
-schema = "chain_indexer"
+schema = "contract_event_processor"
 dbname = "postgres"
 blacklist = ["migrations"]
 host = "localhost"

@@ -10,6 +10,9 @@ import (
 
 	"github.com/DIMO-Network/shared"
 	"github.com/Shopify/sarama"
+	"github.com/gofiber/adaptor/v2"
+	"github.com/gofiber/fiber/v2"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 )
 
@@ -39,6 +42,8 @@ func main() {
 		}
 	}
 
+	monApp := serveMonitoring(settings.MonitoringPort, &logger)
+
 	kafkaClient, err := services.StartKafkaStream(settings)
 	if err != nil {
 		log.Fatal(err)
@@ -57,4 +62,24 @@ func main() {
 
 	listener.CompileRegistryMap("config.yaml")
 	listener.ChainIndexer(blockNum)
+
+	monApp.Shutdown()
+}
+
+func serveMonitoring(port string, logger *zerolog.Logger) *fiber.App {
+	monApp := fiber.New(fiber.Config{DisableStartupMessage: true})
+
+	// Health check.
+	monApp.Get("/", func(c *fiber.Ctx) error { return nil })
+	monApp.Get("/metrics", adaptor.HTTPHandler(promhttp.Handler()))
+
+	go func() {
+		if err := monApp.Listen(":" + port); err != nil {
+			logger.Fatal().Err(err).Str("port", port).Msg("Failed to start monitoring web server.")
+		}
+	}()
+
+	logger.Info().Str("port", port).Msg("Started monitoring web server.")
+
+	return monApp
 }

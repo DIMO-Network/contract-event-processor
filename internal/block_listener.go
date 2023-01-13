@@ -48,6 +48,8 @@ type Settings struct {
 	PostgresDB       string `yaml:"POSTGRES_DB"`
 	PostgresHOST     string `yaml:"POSTGRES_HOST"`
 	PostgresPort     int    `yaml:"POSTGRES_PORT"`
+
+	MonitoringPort string `yaml:"MONITORING_PORT"`
 }
 
 type BlockListener struct {
