@@ -23,7 +23,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/rs/zerolog"
 	"github.com/segmentio/ksuid"
-	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 	"gopkg.in/yaml.v3"
@@ -173,9 +172,8 @@ func (bl *BlockListener) GetNextBlock(block *types.Header) (*types.Header, error
 // fetch the current block that hasn't yet been indexed
 func (bl *BlockListener) RecordBlock(block *types.Header) error {
 	processedBlock := models.Block{
-		Number:    block.Number.Int64(),
-		Hash:      null.StringFrom(block.Hash().String()),
-		Processed: null.BoolFrom(true),
+		Number: block.Number.Int64(),
+		Hash:   block.Hash().Bytes(),
 	}
 
 	return processedBlock.Insert(context.Background(), bl.DB, boil.Infer())

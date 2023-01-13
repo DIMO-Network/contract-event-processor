@@ -24,35 +24,44 @@ import (
 
 // Block is an object representing the database table.
 type Block struct {
-	Number    int64       `boil:"number" json:"number" toml:"number" yaml:"number"`
-	Hash      null.String `boil:"hash" json:"hash,omitempty" toml:"hash" yaml:"hash,omitempty"`
-	Processed null.Bool   `boil:"processed" json:"processed,omitempty" toml:"processed" yaml:"processed,omitempty"`
+	Hash        []byte    `boil:"hash" json:"hash" toml:"hash" yaml:"hash"`
+	Number      int64     `boil:"number" json:"number" toml:"number" yaml:"number"`
+	ProcessedAt null.Time `boil:"processed_at" json:"processed_at,omitempty" toml:"processed_at" yaml:"processed_at,omitempty"`
 
 	R *blockR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L blockL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var BlockColumns = struct {
-	Number    string
-	Hash      string
-	Processed string
+	Hash        string
+	Number      string
+	ProcessedAt string
 }{
-	Number:    "number",
-	Hash:      "hash",
-	Processed: "processed",
+	Hash:        "hash",
+	Number:      "number",
+	ProcessedAt: "processed_at",
 }
 
 var BlockTableColumns = struct {
-	Number    string
-	Hash      string
-	Processed string
+	Hash        string
+	Number      string
+	ProcessedAt string
 }{
-	Number:    "blocks.number",
-	Hash:      "blocks.hash",
-	Processed: "blocks.processed",
+	Hash:        "blocks.hash",
+	Number:      "blocks.number",
+	ProcessedAt: "blocks.processed_at",
 }
 
 // Generated where
+
+type whereHelper__byte struct{ field string }
+
+func (w whereHelper__byte) EQ(x []byte) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
+func (w whereHelper__byte) NEQ(x []byte) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
+func (w whereHelper__byte) LT(x []byte) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
+func (w whereHelper__byte) LTE(x []byte) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
+func (w whereHelper__byte) GT(x []byte) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
+func (w whereHelper__byte) GTE(x []byte) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
 
 type whereHelperint64 struct{ field string }
 
@@ -77,76 +86,38 @@ func (w whereHelperint64) NIN(slice []int64) qm.QueryMod {
 	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
 }
 
-type whereHelpernull_String struct{ field string }
+type whereHelpernull_Time struct{ field string }
 
-func (w whereHelpernull_String) EQ(x null.String) qm.QueryMod {
+func (w whereHelpernull_Time) EQ(x null.Time) qm.QueryMod {
 	return qmhelper.WhereNullEQ(w.field, false, x)
 }
-func (w whereHelpernull_String) NEQ(x null.String) qm.QueryMod {
+func (w whereHelpernull_Time) NEQ(x null.Time) qm.QueryMod {
 	return qmhelper.WhereNullEQ(w.field, true, x)
 }
-func (w whereHelpernull_String) LT(x null.String) qm.QueryMod {
+func (w whereHelpernull_Time) LT(x null.Time) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.LT, x)
 }
-func (w whereHelpernull_String) LTE(x null.String) qm.QueryMod {
+func (w whereHelpernull_Time) LTE(x null.Time) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.LTE, x)
 }
-func (w whereHelpernull_String) GT(x null.String) qm.QueryMod {
+func (w whereHelpernull_Time) GT(x null.Time) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GT, x)
 }
-func (w whereHelpernull_String) GTE(x null.String) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.GTE, x)
-}
-func (w whereHelpernull_String) IN(slice []string) qm.QueryMod {
-	values := make([]interface{}, 0, len(slice))
-	for _, value := range slice {
-		values = append(values, value)
-	}
-	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
-}
-func (w whereHelpernull_String) NIN(slice []string) qm.QueryMod {
-	values := make([]interface{}, 0, len(slice))
-	for _, value := range slice {
-		values = append(values, value)
-	}
-	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
-}
-
-func (w whereHelpernull_String) IsNull() qm.QueryMod    { return qmhelper.WhereIsNull(w.field) }
-func (w whereHelpernull_String) IsNotNull() qm.QueryMod { return qmhelper.WhereIsNotNull(w.field) }
-
-type whereHelpernull_Bool struct{ field string }
-
-func (w whereHelpernull_Bool) EQ(x null.Bool) qm.QueryMod {
-	return qmhelper.WhereNullEQ(w.field, false, x)
-}
-func (w whereHelpernull_Bool) NEQ(x null.Bool) qm.QueryMod {
-	return qmhelper.WhereNullEQ(w.field, true, x)
-}
-func (w whereHelpernull_Bool) LT(x null.Bool) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.LT, x)
-}
-func (w whereHelpernull_Bool) LTE(x null.Bool) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.LTE, x)
-}
-func (w whereHelpernull_Bool) GT(x null.Bool) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.GT, x)
-}
-func (w whereHelpernull_Bool) GTE(x null.Bool) qm.QueryMod {
+func (w whereHelpernull_Time) GTE(x null.Time) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GTE, x)
 }
 
-func (w whereHelpernull_Bool) IsNull() qm.QueryMod    { return qmhelper.WhereIsNull(w.field) }
-func (w whereHelpernull_Bool) IsNotNull() qm.QueryMod { return qmhelper.WhereIsNotNull(w.field) }
+func (w whereHelpernull_Time) IsNull() qm.QueryMod    { return qmhelper.WhereIsNull(w.field) }
+func (w whereHelpernull_Time) IsNotNull() qm.QueryMod { return qmhelper.WhereIsNotNull(w.field) }
 
 var BlockWhere = struct {
-	Number    whereHelperint64
-	Hash      whereHelpernull_String
-	Processed whereHelpernull_Bool
+	Hash        whereHelper__byte
+	Number      whereHelperint64
+	ProcessedAt whereHelpernull_Time
 }{
-	Number:    whereHelperint64{field: "\"chain_indexer\".\"blocks\".\"number\""},
-	Hash:      whereHelpernull_String{field: "\"chain_indexer\".\"blocks\".\"hash\""},
-	Processed: whereHelpernull_Bool{field: "\"chain_indexer\".\"blocks\".\"processed\""},
+	Hash:        whereHelper__byte{field: "\"contract_event_processor\".\"blocks\".\"hash\""},
+	Number:      whereHelperint64{field: "\"contract_event_processor\".\"blocks\".\"number\""},
+	ProcessedAt: whereHelpernull_Time{field: "\"contract_event_processor\".\"blocks\".\"processed_at\""},
 }
 
 // BlockRels is where relationship names are stored.
@@ -166,10 +137,10 @@ func (*blockR) NewStruct() *blockR {
 type blockL struct{}
 
 var (
-	blockAllColumns            = []string{"number", "hash", "processed"}
-	blockColumnsWithoutDefault = []string{"number"}
-	blockColumnsWithDefault    = []string{"hash", "processed"}
-	blockPrimaryKeyColumns     = []string{"number"}
+	blockAllColumns            = []string{"hash", "number", "processed_at"}
+	blockColumnsWithoutDefault = []string{"hash", "number"}
+	blockColumnsWithDefault    = []string{"processed_at"}
+	blockPrimaryKeyColumns     = []string{"hash"}
 	blockGeneratedColumns      = []string{}
 )
 
@@ -453,10 +424,10 @@ func (q blockQuery) Exists(ctx context.Context, exec boil.ContextExecutor) (bool
 
 // Blocks retrieves all the records using an executor.
 func Blocks(mods ...qm.QueryMod) blockQuery {
-	mods = append(mods, qm.From("\"chain_indexer\".\"blocks\""))
+	mods = append(mods, qm.From("\"contract_event_processor\".\"blocks\""))
 	q := NewQuery(mods...)
 	if len(queries.GetSelect(q)) == 0 {
-		queries.SetSelect(q, []string{"\"chain_indexer\".\"blocks\".*"})
+		queries.SetSelect(q, []string{"\"contract_event_processor\".\"blocks\".*"})
 	}
 
 	return blockQuery{q}
@@ -464,7 +435,7 @@ func Blocks(mods ...qm.QueryMod) blockQuery {
 
 // FindBlock retrieves a single record by ID with an executor.
 // If selectCols is empty Find will return all columns.
-func FindBlock(ctx context.Context, exec boil.ContextExecutor, number int64, selectCols ...string) (*Block, error) {
+func FindBlock(ctx context.Context, exec boil.ContextExecutor, hash []byte, selectCols ...string) (*Block, error) {
 	blockObj := &Block{}
 
 	sel := "*"
@@ -472,10 +443,10 @@ func FindBlock(ctx context.Context, exec boil.ContextExecutor, number int64, sel
 		sel = strings.Join(strmangle.IdentQuoteSlice(dialect.LQ, dialect.RQ, selectCols), ",")
 	}
 	query := fmt.Sprintf(
-		"select %s from \"chain_indexer\".\"blocks\" where \"number\"=$1", sel,
+		"select %s from \"contract_event_processor\".\"blocks\" where \"hash\"=$1", sel,
 	)
 
-	q := queries.Raw(query, number)
+	q := queries.Raw(query, hash)
 
 	err := q.Bind(ctx, exec, blockObj)
 	if err != nil {
@@ -529,9 +500,9 @@ func (o *Block) Insert(ctx context.Context, exec boil.ContextExecutor, columns b
 			return err
 		}
 		if len(wl) != 0 {
-			cache.query = fmt.Sprintf("INSERT INTO \"chain_indexer\".\"blocks\" (\"%s\") %%sVALUES (%s)%%s", strings.Join(wl, "\",\""), strmangle.Placeholders(dialect.UseIndexPlaceholders, len(wl), 1, 1))
+			cache.query = fmt.Sprintf("INSERT INTO \"contract_event_processor\".\"blocks\" (\"%s\") %%sVALUES (%s)%%s", strings.Join(wl, "\",\""), strmangle.Placeholders(dialect.UseIndexPlaceholders, len(wl), 1, 1))
 		} else {
-			cache.query = "INSERT INTO \"chain_indexer\".\"blocks\" %sDEFAULT VALUES%s"
+			cache.query = "INSERT INTO \"contract_event_processor\".\"blocks\" %sDEFAULT VALUES%s"
 		}
 
 		var queryOutput, queryReturning string
@@ -597,7 +568,7 @@ func (o *Block) Update(ctx context.Context, exec boil.ContextExecutor, columns b
 			return 0, errors.New("models: unable to update blocks, could not build whitelist")
 		}
 
-		cache.query = fmt.Sprintf("UPDATE \"chain_indexer\".\"blocks\" SET %s WHERE %s",
+		cache.query = fmt.Sprintf("UPDATE \"contract_event_processor\".\"blocks\" SET %s WHERE %s",
 			strmangle.SetParamNames("\"", "\"", 1, wl),
 			strmangle.WhereClause("\"", "\"", len(wl)+1, blockPrimaryKeyColumns),
 		)
@@ -678,7 +649,7 @@ func (o BlockSlice) UpdateAll(ctx context.Context, exec boil.ContextExecutor, co
 		args = append(args, pkeyArgs...)
 	}
 
-	sql := fmt.Sprintf("UPDATE \"chain_indexer\".\"blocks\" SET %s WHERE %s",
+	sql := fmt.Sprintf("UPDATE \"contract_event_processor\".\"blocks\" SET %s WHERE %s",
 		strmangle.SetParamNames("\"", "\"", 1, colNames),
 		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), len(colNames)+1, blockPrimaryKeyColumns, len(o)))
 
@@ -768,7 +739,7 @@ func (o *Block) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOnC
 			conflict = make([]string, len(blockPrimaryKeyColumns))
 			copy(conflict, blockPrimaryKeyColumns)
 		}
-		cache.query = buildUpsertQueryPostgres(dialect, "\"chain_indexer\".\"blocks\"", updateOnConflict, ret, update, conflict, insert)
+		cache.query = buildUpsertQueryPostgres(dialect, "\"contract_event_processor\".\"blocks\"", updateOnConflict, ret, update, conflict, insert)
 
 		cache.valueMapping, err = queries.BindMapping(blockType, blockMapping, insert)
 		if err != nil {
@@ -827,7 +798,7 @@ func (o *Block) Delete(ctx context.Context, exec boil.ContextExecutor) (int64, e
 	}
 
 	args := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(o)), blockPrimaryKeyMapping)
-	sql := "DELETE FROM \"chain_indexer\".\"blocks\" WHERE \"number\"=$1"
+	sql := "DELETE FROM \"contract_event_processor\".\"blocks\" WHERE \"hash\"=$1"
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
@@ -892,7 +863,7 @@ func (o BlockSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (i
 		args = append(args, pkeyArgs...)
 	}
 
-	sql := "DELETE FROM \"chain_indexer\".\"blocks\" WHERE " +
+	sql := "DELETE FROM \"contract_event_processor\".\"blocks\" WHERE " +
 		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), 1, blockPrimaryKeyColumns, len(o))
 
 	if boil.IsDebug(ctx) {
@@ -924,7 +895,7 @@ func (o BlockSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (i
 // Reload refetches the object from the database
 // using the primary keys with an executor.
 func (o *Block) Reload(ctx context.Context, exec boil.ContextExecutor) error {
-	ret, err := FindBlock(ctx, exec, o.Number)
+	ret, err := FindBlock(ctx, exec, o.Hash)
 	if err != nil {
 		return err
 	}
@@ -947,7 +918,7 @@ func (o *BlockSlice) ReloadAll(ctx context.Context, exec boil.ContextExecutor) e
 		args = append(args, pkeyArgs...)
 	}
 
-	sql := "SELECT \"chain_indexer\".\"blocks\".* FROM \"chain_indexer\".\"blocks\" WHERE " +
+	sql := "SELECT \"contract_event_processor\".\"blocks\".* FROM \"contract_event_processor\".\"blocks\" WHERE " +
 		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), 1, blockPrimaryKeyColumns, len(*o))
 
 	q := queries.Raw(sql, args...)
@@ -963,16 +934,16 @@ func (o *BlockSlice) ReloadAll(ctx context.Context, exec boil.ContextExecutor) e
 }
 
 // BlockExists checks if the Block row exists.
-func BlockExists(ctx context.Context, exec boil.ContextExecutor, number int64) (bool, error) {
+func BlockExists(ctx context.Context, exec boil.ContextExecutor, hash []byte) (bool, error) {
 	var exists bool
-	sql := "select exists(select 1 from \"chain_indexer\".\"blocks\" where \"number\"=$1 limit 1)"
+	sql := "select exists(select 1 from \"contract_event_processor\".\"blocks\" where \"hash\"=$1 limit 1)"
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
 		fmt.Fprintln(writer, sql)
-		fmt.Fprintln(writer, number)
+		fmt.Fprintln(writer, hash)
 	}
-	row := exec.QueryRowContext(ctx, sql, number)
+	row := exec.QueryRowContext(ctx, sql, hash)
 
 	err := row.Scan(&exists)
 	if err != nil {
