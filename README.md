@@ -40,10 +40,13 @@ event := shared.CloudEvent[Event]{
 ID:      ksuid.New().String(),
 # Block number being processed
 Source:  head.Number.String(),
-# Block transaction hash
+# Block or transaction hash vLog.TxHash.String() || blockHash.String()
 Subject: vLog.TxHash.String(),
 # Time block was mined
 Time:    tm,
+# type of event: blockcompleted || dimoevent
+Type:    "blockcompleted",
+
 Data: Event{
     # Contract address of event
     Contract: vLog.Address.String(),
