@@ -14,7 +14,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/DIMO-Network/contract-event-processor/internal/config"
+	"github.com/DIMO-Network/contract-event-processor/models"
 	"github.com/DIMO-Network/shared"
+	"github.com/DIMO-Network/shared/db"
 	"github.com/Shopify/sarama"
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -28,29 +31,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	_ "github.com/lib/pq"
-
-	"event-stream/models"
 )
-
-type Settings struct {
-	WebSocketAddress string `yaml:"WEB_SOCKET_ADDRESS"`
-	AlchemyAPIKey    string `yaml:"API_KEY"`
-
-	BlockConfirmations int `yaml:"BLOCK_CONFIRMATIONS"`
-
-	EventStreamTopic string `yaml:"EVENT_STREAM_TOPIC"`
-
-	KafkaBroker string `yaml:"KAFKA_BROKER"`
-	Partitions  int    `yaml:"PARTITIONS"`
-
-	PostgresUser     string `yaml:"POSTGRES_USER"`
-	PostgresPassword string `yaml:"POSTGRES_PASSWORD"`
-	PostgresDB       string `yaml:"POSTGRES_DB"`
-	PostgresHOST     string `yaml:"POSTGRES_HOST"`
-	PostgresPort     int    `yaml:"POSTGRES_PORT"`
-
-	MonitoringPort string `yaml:"MONITORING_PORT"`
-}
 
 type BlockListener struct {
 	Client           *ethclient.Client
@@ -60,7 +41,7 @@ type BlockListener struct {
 	EventStreamTopic string
 	Registry         map[common.Address]map[common.Hash]abi.Event
 	Confirmations    *big.Int
-	DB               *sql.DB
+	DB               db.Store
 	ABIs             map[common.Address]abi.ABI
 }
 
@@ -78,24 +59,13 @@ type Block struct {
 	Number *big.Int
 }
 
-func NewBlockListener(s Settings, logger zerolog.Logger, producer sarama.SyncProducer) (BlockListener, error) {
-	c, err := ethclient.Dial(s.WebSocketAddress + s.AlchemyAPIKey)
+func NewBlockListener(s config.Settings, logger zerolog.Logger, producer sarama.SyncProducer) (BlockListener, error) {
+	c, err := ethclient.Dial(s.EthereumRPCURL)
 	if err != nil {
 		return BlockListener{}, err
 	}
 
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
-		"password=%s dbname=%s sslmode=disable",
-		s.PostgresHOST, s.PostgresPort, s.PostgresUser, s.PostgresPassword, s.PostgresDB)
-
-	pg, err := sql.Open("postgres", psqlInfo)
-	if err != nil {
-		return BlockListener{}, err
-	}
-	err = pg.Ping()
-	if err != nil {
-		return BlockListener{}, err
-	}
+	pdb := db.NewDbConnectionFromSettings(context.TODO(), &s.DB, true)
 
 	return BlockListener{
 		Client:           c,
@@ -103,7 +73,7 @@ func NewBlockListener(s Settings, logger zerolog.Logger, producer sarama.SyncPro
 		Logger:           logger,
 		Producer:         producer,
 		Confirmations:    big.NewInt(int64(s.BlockConfirmations)),
-		DB:               pg,
+		DB:               pdb,
 	}, nil
 }
 
@@ -149,7 +119,7 @@ func (bl *BlockListener) GetBlockHead(blockNum *big.Int) (*types.Header, error) 
 		return bl.Client.HeaderByNumber(context.Background(), blockNum)
 	}
 
-	resp, err := models.Blocks(qm.OrderBy(models.BlockColumns.Number+" DESC")).One(context.Background(), bl.DB)
+	resp, err := models.Blocks(qm.OrderBy(models.BlockColumns.Number+" DESC")).One(context.Background(), bl.DB.DBS().Reader)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			bl.Logger.Info().Msg("no value passed or found in db; setting block head to current head minus five")
@@ -178,7 +148,7 @@ func (bl *BlockListener) RecordBlock(block *types.Header) error {
 		Hash:   block.Hash().Bytes(),
 	}
 
-	return processedBlock.Insert(context.Background(), bl.DB, boil.Infer())
+	return processedBlock.Insert(context.Background(), bl.DB.DBS().Writer, boil.Infer())
 }
 
 func (bl *BlockListener) ChainIndexer(blockNum *big.Int) {

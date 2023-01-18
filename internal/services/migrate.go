@@ -4,24 +4,27 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/DIMO-Network/contract-event-processor/internal/config"
 	"github.com/pressly/goose/v3"
 	"github.com/rs/zerolog"
 
 	_ "github.com/lib/pq"
 )
 
-func MigrateDatabase(logger zerolog.Logger, s *Settings, command, schemaName string) {
+func MigrateDatabase(logger zerolog.Logger, s *config.Settings, command, schemaName string) {
+	var db *sql.DB
 	// setup database
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
-		"password=%s dbname=%s sslmode=disable",
-		s.PostgresHOST, s.PostgresPort, s.PostgresUser, s.PostgresPassword, s.PostgresDB)
-
-	pg, err := sql.Open("postgres", psqlInfo)
+	db, err := sql.Open("postgres", s.DB.BuildConnectionString(true))
+	defer func() {
+		if err := db.Close(); err != nil {
+			logger.Fatal().Msgf("goose: failed to close DB: %v\n", err)
+		}
+	}()
 	if err != nil {
-		logger.Fatal().Msgf("failed to establish db connection: %v\n", err)
+		logger.Fatal().Msgf("failed to open db connection: %v\n", err)
 	}
 
-	if err = pg.Ping(); err != nil {
+	if err = db.Ping(); err != nil {
 		logger.Fatal().Msgf("failed to ping db: %v\n", err)
 	}
 
@@ -30,12 +33,12 @@ func MigrateDatabase(logger zerolog.Logger, s *Settings, command, schemaName str
 		command = "up"
 	}
 	// must create schema so that can set migrations table to that schema
-	_, err = pg.Exec(fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s;", schemaName))
+	_, err = db.Exec(fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s;", schemaName))
 	if err != nil {
 		logger.Fatal().Err(err).Msgf("could not create schema, %s", schemaName)
 	}
 	goose.SetTableName(fmt.Sprintf("%s.migrations", schemaName))
-	if err := goose.Run(command, pg, "migrations"); err != nil {
+	if err := goose.Run(command, db, "migrations"); err != nil {
 		logger.Fatal().Msgf("failed to apply go code migrations: %v\n", err)
 	}
 	// if we add any code migrations import _ "github.com/DIMO-Network/users-api/migrations" // migrations won't work without this

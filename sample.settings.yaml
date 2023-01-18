@@ -1,5 +1,4 @@
-WEB_SOCKET_ADDRESS: wss://polygon-mainnet.g.alchemy.com/v2/
-API_KEY:
+ETHEREUM_RPC_URL: wss://polygon-mainnet.g.alchemy.com/v2/
 EVENT_STREAM_TOPIC: topic.contract.event
 PARTITIONS: 1
 KAFKA_BROKER: localhost:9092

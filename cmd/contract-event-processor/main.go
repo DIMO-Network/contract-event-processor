@@ -6,7 +6,8 @@ import (
 	"os"
 	"strconv"
 
-	services "event-stream/internal"
+	"github.com/DIMO-Network/contract-event-processor/internal/config"
+	"github.com/DIMO-Network/contract-event-processor/internal/services"
 
 	"github.com/DIMO-Network/shared"
 	"github.com/Shopify/sarama"
@@ -18,7 +19,7 @@ import (
 
 func main() {
 	logger := zerolog.New(os.Stdout).With().Timestamp().Str("app", "event-stream-processor").Logger()
-	settings, err := shared.LoadConfig[services.Settings]("settings.yaml")
+	settings, err := shared.LoadConfig[config.Settings]("settings.yaml")
 	if err != nil {
 		logger.Fatal().Err(err)
 	}

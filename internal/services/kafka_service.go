@@ -1,6 +1,7 @@
 package services
 
 import (
+	"github.com/DIMO-Network/contract-event-processor/internal/config"
 	"github.com/Shopify/sarama"
 )
 
@@ -13,7 +14,7 @@ type Event struct {
 	EventName       string         `json:"eventName,omitempty"`
 }
 
-func StartKafkaStream(s Settings) (sarama.Client, error) {
+func StartKafkaStream(s config.Settings) (sarama.Client, error) {
 
 	config := sarama.NewConfig()
 	config.Producer.Return.Successes = true
