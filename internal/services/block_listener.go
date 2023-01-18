@@ -65,7 +65,9 @@ func NewBlockListener(s config.Settings, logger zerolog.Logger, producer sarama.
 		return BlockListener{}, err
 	}
 
+	logger.Info().Interface("db", s.DB).Msg("Database lol")
 	pdb := db.NewDbConnectionFromSettings(context.TODO(), &s.DB, true)
+	pdb.WaitForDB(logger)
 
 	return BlockListener{
 		Client:           c,
