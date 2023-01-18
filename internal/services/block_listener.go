@@ -65,7 +65,6 @@ func NewBlockListener(s config.Settings, logger zerolog.Logger, producer sarama.
 		return BlockListener{}, err
 	}
 
-	logger.Info().Interface("db", s.DB).Msg("Database lol")
 	pdb := db.NewDbConnectionFromSettings(context.TODO(), &s.DB, true)
 	pdb.WaitForDB(logger)
 
@@ -105,6 +104,8 @@ func (bl *BlockListener) CompileRegistryMap(configPath string) {
 		if err != nil {
 			log.Fatal(err)
 		}
+
+		bl.Logger.Info().Str("address", contract.Address.String()).Str("abiFile", contract.ABI).Msg("Watching contract.")
 
 		bl.ABIs[contract.Address] = a
 		bl.Registry[contract.Address] = make(map[common.Hash]abi.Event)
