@@ -9,7 +9,6 @@ require (
 	github.com/gofiber/adaptor/v2 v2.1.31
 	github.com/gofiber/fiber/v2 v2.41.0
 	github.com/lib/pq v1.10.7
-	github.com/pressly/goose/v3 v3.7.0
 	github.com/prometheus/client_golang v1.12.1
 	github.com/volatiletech/null/v8 v8.1.2
 	github.com/volatiletech/sqlboiler/v4 v4.14.0
@@ -62,7 +61,6 @@ require (
 	github.com/volatiletech/inflect v0.0.1 // indirect
 	github.com/volatiletech/randomize v0.0.1 // indirect
 	golang.org/x/net v0.1.0 // indirect
-	golang.org/x/tools v0.2.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220609144429-65e65417b02f // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 )
