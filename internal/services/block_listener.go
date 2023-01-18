@@ -85,6 +85,9 @@ func (bl *BlockListener) CompileRegistryMap(configPath string) {
 	}
 
 	err = yaml.Unmarshal(cb, &conf)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	bl.Registry = make(map[common.Address]map[common.Hash]abi.Event)
 	bl.ABIs = make(map[common.Address]abi.ABI)
