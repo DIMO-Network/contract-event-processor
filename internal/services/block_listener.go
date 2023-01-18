@@ -69,7 +69,7 @@ func NewBlockListener(s config.Settings, logger zerolog.Logger, producer sarama.
 
 	return BlockListener{
 		Client:           c,
-		EventStreamTopic: s.EventStreamTopic,
+		EventStreamTopic: s.ContractEventTopic,
 		Logger:           logger,
 		Producer:         producer,
 		Confirmations:    big.NewInt(int64(s.BlockConfirmations)),
