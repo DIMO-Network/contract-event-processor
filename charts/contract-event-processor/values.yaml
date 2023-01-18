@@ -2,7 +2,7 @@ replicaCount: 1
 image:
   repository: dimozone/contract-event-processor
   pullPolicy: IfNotPresent
-  tag: ef8a2c3
+  tag: 3fb2b5b
 imagePullSecrets: []
 nameOverride: ''
 fullnameOverride: ''
