@@ -1,7 +1,3 @@
 contracts:
-  - address: 0x8129f3cD3EBA82136Caf5aB87E2321c958Da5B63
-    startBlock: 28933550
-    abi: abi/issuance.json
-  - address: 0xFA8beC73cebB9D88FF88a2f75E7D7312f2Fd39EC
-    startBlock: 28933550
-    abi: abi/identity.json
+  - address: 0x90C4D6113Ec88dd4BDf12f26DB2b3998fd13A144
+    abi: abi/VehicleId.json
