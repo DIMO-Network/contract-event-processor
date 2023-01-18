@@ -103,7 +103,7 @@
         "anonymous": false,
         "inputs": [
             {
-                "indexed": false,
+                "indexed": true,
                 "internalType": "uint256",
                 "name": "privilegeId",
                 "type": "uint256"
@@ -117,7 +117,7 @@
             {
                 "indexed": false,
                 "internalType": "string",
-                "name": "decription",
+                "name": "description",
                 "type": "string"
             }
         ],
@@ -128,7 +128,7 @@
         "anonymous": false,
         "inputs": [
             {
-                "indexed": false,
+                "indexed": true,
                 "internalType": "uint256",
                 "name": "privilegeId",
                 "type": "uint256"
@@ -141,7 +141,7 @@
         "anonymous": false,
         "inputs": [
             {
-                "indexed": false,
+                "indexed": true,
                 "internalType": "uint256",
                 "name": "privilegeId",
                 "type": "uint256"
@@ -154,7 +154,7 @@
         "anonymous": false,
         "inputs": [
             {
-                "indexed": false,
+                "indexed": true,
                 "internalType": "uint256",
                 "name": "tokenId",
                 "type": "uint256"
@@ -166,7 +166,7 @@
                 "type": "uint256"
             },
             {
-                "indexed": false,
+                "indexed": true,
                 "internalType": "uint256",
                 "name": "privId",
                 "type": "uint256"
@@ -951,6 +951,41 @@
             }
         ],
         "name": "setPrivilege",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "components": [
+                    {
+                        "internalType": "uint256",
+                        "name": "tokenId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "privId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "user",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "expires",
+                        "type": "uint256"
+                    }
+                ],
+                "internalType": "struct MultiPrivilege.SetPrivilegeData[]",
+                "name": "privData",
+                "type": "tuple[]"
+            }
+        ],
+        "name": "setPrivileges",
         "outputs": [],
         "stateMutability": "nonpayable",
         "type": "function"
