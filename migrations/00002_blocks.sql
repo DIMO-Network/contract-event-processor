@@ -1,13 +1,13 @@
 -- +goose Up
 -- +goose StatementBegin
-SELECT 'up SQL query';
-
-SET search_path TO contract_event_processor;
+SET search_path TO contract_event_processor, public;
 
 CREATE TABLE IF NOT EXISTS blocks (
-    hash bytea PRIMARY KEY,
-    number bigint NOT NULL,
-    processed_at timestamp default (now() at time zone 'utc')
+    number bigint PRIMARY KEY
+        CONSTRAINT blocks_number_check CHECK (number > 0),
+    hash bytea
+        CONSTRAINT blocks_hash_check CHECK (length(hash) = 32),
+    processed_at timestamptz default current_timestamp
 );
 
 ALTER TABLE blocks
@@ -20,9 +20,7 @@ on blocks (number);
 
 -- +goose Down
 -- +goose StatementBegin
-SELECT 'down SQL query';
-
-SET search_path TO contract_event_processor;
+SET search_path TO contract_event_processor, public;
 
 DROP TABLE IF EXISTS blocks;
 

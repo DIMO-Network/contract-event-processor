@@ -29,7 +29,13 @@ func main() {
 		switch subCommand := os.Args[1]; subCommand {
 		case "migrate":
 			command := "up"
-			services.MigrateDatabase(logger, &settings, command, "chain_indexer")
+			if len(os.Args) > 2 {
+				command = os.Args[2]
+				if command == "down-to" || command == "up-to" {
+					command = command + " " + os.Args[3]
+				}
+			}
+			migrateDatabase(logger, &settings, command)
 			return
 		case "override":
 			if len(os.Args) > 2 {

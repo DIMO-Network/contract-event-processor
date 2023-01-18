@@ -1,20 +1,17 @@
-package services
+package main
 
 import (
 	"database/sql"
-	"fmt"
 
 	"github.com/DIMO-Network/contract-event-processor/internal/config"
-	"github.com/pressly/goose/v3"
+	"github.com/pressly/goose"
 	"github.com/rs/zerolog"
-
-	_ "github.com/lib/pq"
 )
 
-func MigrateDatabase(logger zerolog.Logger, s *config.Settings, command, schemaName string) {
+func migrateDatabase(logger zerolog.Logger, settings *config.Settings, command string) {
 	var db *sql.DB
 	// setup database
-	db, err := sql.Open("postgres", s.DB.BuildConnectionString(true))
+	db, err := sql.Open("postgres", settings.DB.BuildConnectionString(true))
 	defer func() {
 		if err := db.Close(); err != nil {
 			logger.Fatal().Msgf("goose: failed to close DB: %v\n", err)
@@ -23,23 +20,20 @@ func MigrateDatabase(logger zerolog.Logger, s *config.Settings, command, schemaN
 	if err != nil {
 		logger.Fatal().Msgf("failed to open db connection: %v\n", err)
 	}
-
 	if err = db.Ping(); err != nil {
 		logger.Fatal().Msgf("failed to ping db: %v\n", err)
 	}
-
 	// set default
 	if command == "" {
 		command = "up"
 	}
-	// must create schema so that can set migrations table to that schema
-	_, err = db.Exec(fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s;", schemaName))
+	// todo manually run sql to create devices_api schema
+	_, err = db.Exec("CREATE SCHEMA IF NOT EXISTS contract_event_processor;")
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("could not create schema, %s", schemaName)
+		logger.Fatal().Err(err).Msg("could not create schema")
 	}
-	goose.SetTableName(fmt.Sprintf("%s.migrations", schemaName))
+	goose.SetTableName("contract_event_processor.migrations")
 	if err := goose.Run(command, db, "migrations"); err != nil {
 		logger.Fatal().Msgf("failed to apply go code migrations: %v\n", err)
 	}
-	// if we add any code migrations import _ "github.com/DIMO-Network/users-api/migrations" // migrations won't work without this
 }
