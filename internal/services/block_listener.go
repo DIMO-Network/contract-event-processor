@@ -226,7 +226,7 @@ func (bl *BlockListener) ProcessBlock(client *ethclient.Client, head *types.Head
 				ID:      ksuid.New().String(),
 				Source:  head.Number.String(),
 				Subject: vLog.TxHash.String(),
-				Type:    "dimoevent",
+				Type:    "zone.dimo.contract.event",
 				Time:    tm,
 				Data: Event{
 					EventName:       ev.Name,
@@ -267,7 +267,7 @@ func (bl *BlockListener) ProcessBlock(client *ethclient.Client, head *types.Head
 		ID:      ksuid.New().String(),
 		Source:  head.Number.String(),
 		Subject: blockHash.String(),
-		Type:    "blockcompleted",
+		Type:    "zone.dimo.blockchain.block.processed",
 		Time:    tm,
 		Data: Event{
 			BlockCompleted: true,
