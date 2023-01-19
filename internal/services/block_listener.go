@@ -147,7 +147,7 @@ func (bl *BlockListener) GetNextBlock(block *types.Header) (*types.Header, error
 	nextBlock := new(big.Int).Add(block.Number, big.NewInt(1))
 	head, err := bl.Client.HeaderByNumber(context.Background(), nextBlock)
 
-	if err == ethereum.NotFound && head == nil {
+	if err == ethereum.NotFound {
 		time.Sleep(2 * time.Second)
 		head, err = bl.GetNextBlock(block)
 	}
