@@ -27,6 +27,7 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           context: .
+          platforms: linux/amd64
           file: ./resources/docker/Dockerfile
           push: true
           tags: dimozone/contract-event-processor:${{ steps.slug.outputs.sha7 }}, dimozone/contract-event-processor:latest
