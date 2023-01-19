@@ -70,7 +70,8 @@ func main() {
 	listener.CompileRegistryMap("config.yaml")
 	listener.ChainIndexer(blockNum)
 
-	monApp.Shutdown()
+	// TODO(elffjs): Log this.
+	_ = monApp.Shutdown()
 }
 
 func serveMonitoring(port string, logger *zerolog.Logger) *fiber.App {
