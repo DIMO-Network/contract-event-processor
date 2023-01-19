@@ -144,7 +144,15 @@ func (bl *BlockListener) GetBlockHead(blockNum *big.Int) (*types.Header, error) 
 
 // fetch the current block that hasn't yet been indexed
 func (bl *BlockListener) GetNextBlock(block *types.Header) (*types.Header, error) {
-	return bl.Client.HeaderByNumber(context.Background(), block.Number.Add(block.Number, big.NewInt(1)))
+	nextBlock := big.NewInt(1).Add(block.Number, big.NewInt(1))
+	head, err := bl.Client.HeaderByNumber(context.Background(), nextBlock)
+
+	if err == ethereum.NotFound && head == nil {
+		time.Sleep(2 * time.Second)
+		head, err = bl.GetNextBlock(block)
+	}
+
+	return head, err
 }
 
 // fetch the current block that hasn't yet been indexed
