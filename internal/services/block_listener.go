@@ -148,7 +148,7 @@ func (bl *BlockListener) BeginProcessingAtHead(blockNum *big.Int) ([]*big.Int, e
 }
 
 // fetch the most recently indexed block or return latest block
-func (bl *BlockListener) GetBlockHead(currentHead *big.Int, blocks []*big.Int, lastProcessed *big.Int) ([]*big.Int, error) {
+func (bl *BlockListener) GetNextBlock(currentHead *big.Int, blocks []*big.Int, lastProcessed *big.Int) ([]*big.Int, error) {
 
 	var head *types.Header
 	var err error
@@ -168,19 +168,6 @@ func (bl *BlockListener) GetBlockHead(currentHead *big.Int, blocks []*big.Int, l
 
 	nextBlocks := getRange(head.Number, lastProcessed)
 	return nextBlocks, nil
-}
-
-// fetch the current block that hasn't yet been indexed
-func (bl *BlockListener) GetNextBlock(block *types.Header) (*types.Header, error) {
-	nextBlock := new(big.Int).Add(block.Number, big.NewInt(1))
-	head, err := bl.Client.HeaderByNumber(context.Background(), nextBlock)
-
-	if err == ethereum.NotFound {
-		time.Sleep(2 * time.Second)
-		head, err = bl.GetNextBlock(block)
-	}
-
-	return head, err
 }
 
 // fetch the current block that hasn't yet been indexed
@@ -233,7 +220,7 @@ func (bl *BlockListener) ChainIndexer(blockNum *big.Int) {
 				lastProcessedBlock = block
 			}
 
-			unprocessedBlocks, err = bl.GetBlockHead(nil, unprocessedBlocks, lastProcessedBlock)
+			unprocessedBlocks, err = bl.GetNextBlock(nil, unprocessedBlocks, lastProcessedBlock)
 			if err != nil {
 				bl.Logger.Fatal().Int64("block number", blockNum.Int64()).Msgf("error fetching block head: %v", err)
 			}
