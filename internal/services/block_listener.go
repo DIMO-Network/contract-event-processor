@@ -24,13 +24,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	_ "github.com/lib/pq"
 	"github.com/rs/zerolog"
 	"github.com/segmentio/ksuid"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
+	"golang.org/x/exp/slices"
 	"gopkg.in/yaml.v3"
-
-	_ "github.com/lib/pq"
 )
 
 type BlockListener struct {
@@ -117,29 +117,57 @@ func (bl *BlockListener) CompileRegistryMap(configPath string) {
 
 }
 
-// fetch the most recently indexed block or return latest block
-func (bl *BlockListener) GetBlockHead(blockNum *big.Int) (*types.Header, error) {
+func (bl *BlockListener) BeginProcessingAtHead(blockNum *big.Int) ([]*big.Int, error) {
+
+	head, err := bl.Client.HeaderByNumber(context.Background(), blockNum)
+	if err != nil {
+		return []*big.Int{}, err
+	}
+
+	startBlock := big.NewInt(0).Sub(head.Number, bl.Confirmations)
 
 	if blockNum != nil {
-		bl.Logger.Info().Int64("block number", blockNum.Int64()).Msgf("setting block head to passed value: %v", blockNum.Int64())
-		return bl.Client.HeaderByNumber(context.Background(), blockNum)
+		bl.Logger.Info().Int64("processingFrom", startBlock.Int64()).Int64("overrideValue", blockNum.Int64()).Msgf("processing will begin at %v less than override value", bl.Confirmations)
+		nextBlocks := getRange(head.Number, startBlock)
+		return nextBlocks, nil
 	}
 
 	resp, err := models.Blocks(qm.OrderBy(models.BlockColumns.Number+" DESC")).One(context.Background(), bl.DB.DBS().Reader)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			bl.Logger.Info().Msg("no value passed or found in db; setting block head to current head minus five")
-			h, e := bl.Client.HeaderByNumber(context.Background(), nil)
-			if e != nil {
-				return nil, e
-			}
-			return bl.Client.HeaderByNumber(context.Background(), new(big.Int).Sub(h.Number, bl.Confirmations))
+	if err != nil || resp == nil {
+		if errors.Is(err, sql.ErrNoRows) || resp == nil {
+			bl.Logger.Info().Int64("processingFrom", startBlock.Int64()).Msgf("no value found in database, processing will begin at %v less than current chain head", bl.Confirmations)
+			nextBlocks := getRange(head.Number, startBlock)
+			return nextBlocks, nil
 		}
-		return nil, err
+		return []*big.Int{}, err
 	}
 
-	bl.Logger.Info().Int64("block number", resp.Number).Msgf("setting block head to most recently processed, found in db plus one: %v", resp.Number+1)
-	return bl.Client.HeaderByNumber(context.Background(), new(big.Int).Add(big.NewInt(resp.Number), big.NewInt(1)))
+	bl.Logger.Info().Int64("processingFrom", resp.Number).Msg("processing will begin at latest number found in database")
+	nextBlocks := getRange(head.Number, big.NewInt(resp.Number))
+	return nextBlocks, nil
+}
+
+// fetch the most recently indexed block or return latest block
+func (bl *BlockListener) GetBlockHead(currentHead *big.Int, blocks []*big.Int, lastProcessed *big.Int) ([]*big.Int, error) {
+
+	var head *types.Header
+	var err error
+
+	head, err = bl.Client.HeaderByNumber(context.Background(), currentHead)
+	if err != nil {
+		return []*big.Int{}, err
+	}
+
+	if len(blocks) >= 1 {
+		if blocks[len(blocks)-1] == head.Number && len(blocks) >= int(bl.Confirmations.Int64()) {
+			idx := slices.IndexFunc(blocks, func(c *big.Int) bool { return c == lastProcessed })
+			blocks = blocks[idx+1:]
+			return blocks, nil
+		}
+	}
+
+	nextBlocks := getRange(head.Number, lastProcessed)
+	return nextBlocks, nil
 }
 
 // fetch the current block that hasn't yet been indexed
@@ -162,7 +190,8 @@ func (bl *BlockListener) RecordBlock(block *types.Header) error {
 		Hash:   block.Hash().Bytes(),
 	}
 
-	return processedBlock.Insert(context.Background(), bl.DB.DBS().Writer, boil.Infer())
+	// on conflict, update the time that the block was processed at
+	return processedBlock.Upsert(context.Background(), bl.DB.DBS().Writer, true, []string{"number"}, boil.Whitelist("processed_at"), boil.Infer())
 }
 
 func (bl *BlockListener) ChainIndexer(blockNum *big.Int) {
@@ -175,7 +204,8 @@ func (bl *BlockListener) ChainIndexer(blockNum *big.Int) {
 
 	fmt.Println("Running...")
 
-	head, err := bl.GetBlockHead(blockNum)
+	var lastProcessedBlock *big.Int
+	unprocessedBlocks, err := bl.BeginProcessingAtHead(blockNum)
 	if err != nil {
 		bl.Logger.Fatal().Int64("block number", blockNum.Int64()).Msgf("error fetching block head: %v", err)
 	}
@@ -184,18 +214,28 @@ func (bl *BlockListener) ChainIndexer(blockNum *big.Int) {
 		select {
 		case <-tick.C:
 
-			err = bl.ProcessBlock(bl.Client, head)
-			if err != nil {
-				log.Fatal(err)
+			for _, block := range unprocessedBlocks {
+				fmt.Println("\t\t\tProcessing: ", block.Int64())
+				head, err := bl.Client.HeaderByNumber(context.Background(), block)
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				err = bl.ProcessBlock(bl.Client, head)
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				err = bl.RecordBlock(head)
+				if err != nil {
+					log.Fatal(err)
+				}
+				lastProcessedBlock = block
 			}
 
-			err = bl.RecordBlock(head)
+			unprocessedBlocks, err = bl.GetBlockHead(nil, unprocessedBlocks, lastProcessedBlock)
 			if err != nil {
-				log.Fatal(err)
-			}
-			head, err = bl.GetNextBlock(head)
-			if err != nil {
-				log.Fatal(err)
+				bl.Logger.Fatal().Int64("block number", blockNum.Int64()).Msgf("error fetching block head: %v", err)
 			}
 
 		case sig := <-sigChan:
@@ -207,7 +247,6 @@ func (bl *BlockListener) ChainIndexer(blockNum *big.Int) {
 }
 
 func (bl *BlockListener) ProcessBlock(client *ethclient.Client, head *types.Header) error {
-	log.Printf("Processing block %s", head.Number)
 	blockHash := head.Hash()
 	t, err := strconv.ParseInt(strconv.Itoa(int(head.Time)), 10, 64)
 	if err != nil {
@@ -290,4 +329,14 @@ func (bl *BlockListener) ProcessBlock(client *ethclient.Client, head *types.Head
 	}
 
 	return nil
+}
+
+func getRange(currentHead *big.Int, lastProcessed *big.Int) []*big.Int {
+	// get all numbers in range, inclusive
+	difference := big.NewInt(0).Sub(currentHead, lastProcessed).Int64()
+	r := make([]*big.Int, difference)
+	for i := range r {
+		r[i] = big.NewInt(0).Add(lastProcessed, big.NewInt(int64(i)+1))
+	}
+	return r
 }
