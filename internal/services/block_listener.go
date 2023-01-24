@@ -115,7 +115,7 @@ func (bl *BlockListener) CompileRegistryMap(configPath string) {
 
 }
 
-func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int) error {
+func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int) {
 
 	// should this be one second now that we're waiting?
 	tick := time.NewTicker(2 * time.Second)
@@ -126,7 +126,7 @@ func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int) error
 
 	latestBlockAdded, err := bl.ResumeOrBeginAtHead(blockNum)
 	if err != nil {
-		return err
+		bl.Logger.Err(err)
 	}
 
 	for {
@@ -134,7 +134,7 @@ func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int) error
 		case <-tick.C:
 			head, err := bl.Client.HeaderByNumber(context.Background(), nil)
 			if err != nil {
-				return err
+				bl.Logger.Err(err)
 			}
 			confirmedHead := big.NewInt(0).Sub(head.Number, bl.Confirmations)
 
@@ -151,7 +151,7 @@ func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int) error
 		case sig := <-sigChan:
 			log.Printf("Received signal, terminating: %s", sig)
 			close(c)
-			return nil
+			return
 		}
 	}
 }
@@ -192,7 +192,10 @@ func (bl *BlockListener) ChainIndexer(blockNum *big.Int) {
 	go bl.PollNewBlocks(blockNum, blockNumChannel)
 
 	for block := range blockNumChannel {
-		bl.ProcessBlock(block)
+		err := bl.ProcessBlock(block)
+		if err != nil {
+			bl.Logger.Err(err)
+		}
 	}
 
 }
@@ -285,7 +288,5 @@ func (bl *BlockListener) ProcessBlock(blockNum *big.Int) error {
 		return err
 	}
 
-	bl.RecordBlock(head)
-
-	return nil
+	return bl.RecordBlock(head)
 }
