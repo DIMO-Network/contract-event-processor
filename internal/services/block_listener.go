@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"math/big"
 	"os"
@@ -29,7 +28,6 @@ import (
 	"github.com/segmentio/ksuid"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
-	"golang.org/x/exp/slices"
 	"gopkg.in/yaml.v3"
 )
 
@@ -117,64 +115,70 @@ func (bl *BlockListener) CompileRegistryMap(configPath string) {
 
 }
 
-func (bl *BlockListener) BeginProcessingAtHead(blockNum *big.Int) ([]*big.Int, error) {
+func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int) error {
 
-	head, err := bl.Client.HeaderByNumber(context.Background(), blockNum)
+	tick := time.NewTicker(2 * time.Second)
+	defer tick.Stop()
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	latestBlockAdded, err := bl.ResumeOrBeginAtHead(blockNum)
 	if err != nil {
-		return []*big.Int{}, err
+		return err
 	}
 
-	startBlock := big.NewInt(0).Sub(head.Number, bl.Confirmations)
+	for {
+		select {
+		case <-tick.C:
+			head, err := bl.Client.HeaderByNumber(context.Background(), nil)
+			if err != nil {
+				return err
+			}
+			confirmedHead := big.NewInt(0).Sub(head.Number, bl.Confirmations)
 
+			if latestBlockAdded == nil {
+				c <- confirmedHead
+				latestBlockAdded = confirmedHead
+				continue
+			}
+
+			for confirmedHead.Cmp(latestBlockAdded) == 1 {
+				c <- big.NewInt(0).Add(latestBlockAdded, big.NewInt(1))
+				latestBlockAdded = big.NewInt(0).Add(latestBlockAdded, big.NewInt(1))
+			}
+		case sig := <-sigChan:
+			log.Printf("Received signal, terminating: %s", sig)
+			close(c)
+			return nil
+		}
+	}
+}
+
+func (bl *BlockListener) ResumeOrBeginAtHead(blockNum *big.Int) (*big.Int, error) {
+
+	var latestBlockAdded *big.Int
 	if blockNum != nil {
-		bl.Logger.Info().Int64("processingFrom", startBlock.Int64()).Int64("overrideValue", blockNum.Int64()).Msgf("processing will begin at %v less than override value", bl.Confirmations)
-		nextBlocks := getRange(head.Number, startBlock)
-		return nextBlocks, nil
-	}
-
-	resp, err := models.Blocks(qm.OrderBy(models.BlockColumns.Number+" DESC")).One(context.Background(), bl.DB.DBS().Reader)
-	if err != nil || resp == nil {
-		if errors.Is(err, sql.ErrNoRows) || resp == nil {
-			bl.Logger.Info().Int64("processingFrom", startBlock.Int64()).Msgf("no value found in database, processing will begin at %v less than current chain head", bl.Confirmations)
-			nextBlocks := getRange(head.Number, startBlock)
-			return nextBlocks, nil
+		latestBlockAdded = blockNum
+	} else {
+		resp, err := models.Blocks(qm.OrderBy(models.BlockColumns.Number+" DESC")).One(context.Background(), bl.DB.DBS().Reader)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return latestBlockAdded, err
 		}
-		return []*big.Int{}, err
-	}
 
-	bl.Logger.Info().Int64("processingFrom", resp.Number).Msg("processing will begin at latest number found in database")
-	nextBlocks := getRange(head.Number, big.NewInt(resp.Number))
-	return nextBlocks, nil
-}
-
-// fetch the most recently indexed block or return latest block
-func (bl *BlockListener) GetNextBlock(currentHead *big.Int, blocks []*big.Int, lastProcessed *big.Int) ([]*big.Int, error) {
-
-	var head *types.Header
-	var err error
-
-	head, err = bl.Client.HeaderByNumber(context.Background(), currentHead)
-	if err != nil {
-		return []*big.Int{}, err
-	}
-
-	if len(blocks) >= 1 {
-		if blocks[len(blocks)-1] == head.Number && len(blocks) >= int(bl.Confirmations.Int64()) {
-			idx := slices.IndexFunc(blocks, func(c *big.Int) bool { return c == lastProcessed })
-			blocks = blocks[idx+1:]
-			return blocks, nil
+		if resp != nil {
+			latestBlockAdded = big.NewInt(resp.Number)
 		}
 	}
 
-	nextBlocks := getRange(head.Number, lastProcessed)
-	return nextBlocks, nil
+	return latestBlockAdded, nil
 }
 
-// fetch the current block that hasn't yet been indexed
-func (bl *BlockListener) RecordBlock(block *types.Header) error {
+// RecordBlock store block number and hash after processing
+func (bl *BlockListener) RecordBlock(head *types.Header) error {
 	processedBlock := models.Block{
-		Number: block.Number.Int64(),
-		Hash:   block.Hash().Bytes(),
+		Number: head.Number.Int64(),
+		Hash:   head.Hash().Bytes(),
 	}
 
 	// on conflict, update the time that the block was processed at
@@ -183,57 +187,24 @@ func (bl *BlockListener) RecordBlock(block *types.Header) error {
 
 func (bl *BlockListener) ChainIndexer(blockNum *big.Int) {
 
-	tick := time.NewTicker(2 * time.Second)
-	defer tick.Stop()
+	bl.Logger.Info().Msg("chain indexer starting")
+	blockNumChannel := make(chan *big.Int)
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	go bl.PollNewBlocks(blockNum, blockNumChannel)
 
-	fmt.Println("Running...")
-
-	var lastProcessedBlock *big.Int
-	unprocessedBlocks, err := bl.BeginProcessingAtHead(blockNum)
-	if err != nil {
-		bl.Logger.Fatal().Int64("block number", blockNum.Int64()).Msgf("error fetching block head: %v", err)
-	}
-
-	for {
-		select {
-		case <-tick.C:
-
-			for _, block := range unprocessedBlocks {
-				fmt.Println("\t\t\tProcessing: ", block.Int64())
-				head, err := bl.Client.HeaderByNumber(context.Background(), block)
-				if err != nil {
-					log.Fatal(err)
-				}
-
-				err = bl.ProcessBlock(bl.Client, head)
-				if err != nil {
-					log.Fatal(err)
-				}
-
-				err = bl.RecordBlock(head)
-				if err != nil {
-					log.Fatal(err)
-				}
-				lastProcessedBlock = block
-			}
-
-			unprocessedBlocks, err = bl.GetNextBlock(nil, unprocessedBlocks, lastProcessedBlock)
-			if err != nil {
-				bl.Logger.Fatal().Int64("block number", blockNum.Int64()).Msgf("error fetching block head: %v", err)
-			}
-
-		case sig := <-sigChan:
-			log.Printf("Received signal, terminating: %s", sig)
-			return
-		}
+	for block := range blockNumChannel {
+		bl.ProcessBlock(block)
 	}
 
 }
 
-func (bl *BlockListener) ProcessBlock(client *ethclient.Client, head *types.Header) error {
+func (bl *BlockListener) ProcessBlock(blockNum *big.Int) error {
+	bl.Logger.Info().Int64("blockNumber", blockNum.Int64()).Msg("processing")
+	head, err := bl.Client.HeaderByNumber(context.Background(), blockNum)
+	if err != nil {
+		return err
+	}
+
 	blockHash := head.Hash()
 	t, err := strconv.ParseInt(strconv.Itoa(int(head.Time)), 10, 64)
 	if err != nil {
@@ -245,7 +216,7 @@ func (bl *BlockListener) ProcessBlock(client *ethclient.Client, head *types.Head
 		BlockHash: &blockHash,
 		Addresses: bl.Contracts,
 	}
-	logs, err := client.FilterLogs(context.Background(), fil)
+	logs, err := bl.Client.FilterLogs(context.Background(), fil)
 	if err != nil {
 		return err
 	}
@@ -314,6 +285,8 @@ func (bl *BlockListener) ProcessBlock(client *ethclient.Client, head *types.Head
 		bl.Logger.Info().Str("Block", head.Number.String()).Msgf("error sending block completion confirmation: %v", err)
 		return err
 	}
+
+	bl.RecordBlock(head)
 
 	return nil
 }
