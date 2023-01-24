@@ -3,16 +3,19 @@ package main
 import (
 	"log"
 	"math/big"
+	"net/http"
 	"os"
 	"strconv"
 
 	"github.com/DIMO-Network/contract-event-processor/internal/config"
+	"github.com/DIMO-Network/contract-event-processor/internal/infrastructure/metrics"
 	"github.com/DIMO-Network/contract-event-processor/internal/services"
 
 	"github.com/DIMO-Network/shared"
 	"github.com/Shopify/sarama"
 	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/fiber/v2"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 )
@@ -67,6 +70,7 @@ func main() {
 		log.Fatal(err)
 	}
 
+	startPrometheus(logger)
 	listener.CompileRegistryMap("config.yaml")
 	listener.ChainIndexer(blockNum)
 
@@ -90,4 +94,30 @@ func serveMonitoring(port string, logger *zerolog.Logger) *fiber.App {
 	logger.Info().Str("port", port).Msg("Started monitoring web server.")
 
 	return monApp
+}
+
+func startPrometheus(logger zerolog.Logger) {
+
+	prometheus.Register(metrics.EventsEmitted)
+	prometheus.Register(metrics.BlocksProcessed)
+	prometheus.Register(metrics.BlocksInQueue)
+	prometheus.Register(metrics.ProcessedBlockNumberStored)
+	prometheus.Register(metrics.ProcessedBlockNumberStoreFailed)
+	prometheus.Register(metrics.KafkaEventMessageSent)
+	prometheus.Register(metrics.KafkaEventMessageFailedToSend)
+	prometheus.Register(metrics.SuccessfulHeadPolls)
+	prometheus.Register(metrics.FailedHeadPolls)
+	prometheus.Register(metrics.SuccessfulFilteredLogsFetch)
+	prometheus.Register(metrics.FailedFilteredLogsFetch)
+	prometheus.Register(metrics.FilteredLogsResponseTime)
+	prometheus.Register(metrics.AlchemyHeadPollResponseTime)
+
+	http.Handle("/metrics", promhttp.Handler())
+	go func() {
+		err := http.ListenAndServe(":8888", nil)
+		if err != nil {
+			logger.Fatal().Err(err).Msg("could not start consumer")
+		}
+	}()
+	logger.Info().Msg("prometheus metrics at :8888/metrics")
 }
