@@ -117,6 +117,7 @@ func (bl *BlockListener) CompileRegistryMap(configPath string) {
 
 func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int) error {
 
+	// should this be one second now that we're waiting?
 	tick := time.NewTicker(2 * time.Second)
 	defer tick.Stop()
 
@@ -157,21 +158,19 @@ func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int) error
 
 func (bl *BlockListener) ResumeOrBeginAtHead(blockNum *big.Int) (*big.Int, error) {
 
-	var latestBlockAdded *big.Int
 	if blockNum != nil {
-		latestBlockAdded = blockNum
-	} else {
-		resp, err := models.Blocks(qm.OrderBy(models.BlockColumns.Number+" DESC")).One(context.Background(), bl.DB.DBS().Reader)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return latestBlockAdded, err
-		}
-
-		if resp != nil {
-			latestBlockAdded = big.NewInt(resp.Number)
-		}
+		return blockNum, nil
 	}
 
-	return latestBlockAdded, nil
+	resp, err := models.Blocks(qm.OrderBy(models.BlockColumns.Number+" DESC")).One(context.Background(), bl.DB.DBS().Reader)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return big.NewInt(resp.Number), nil
 }
 
 // RecordBlock store block number and hash after processing
