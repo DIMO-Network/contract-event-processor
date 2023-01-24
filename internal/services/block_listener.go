@@ -290,13 +290,3 @@ func (bl *BlockListener) ProcessBlock(blockNum *big.Int) error {
 
 	return nil
 }
-
-func getRange(currentHead *big.Int, lastProcessed *big.Int) []*big.Int {
-	// get all numbers in range, inclusive
-	difference := big.NewInt(0).Sub(currentHead, lastProcessed).Int64()
-	r := make([]*big.Int, difference)
-	for i := range r {
-		r[i] = big.NewInt(0).Add(lastProcessed, big.NewInt(int64(i)+1))
-	}
-	return r
-}
