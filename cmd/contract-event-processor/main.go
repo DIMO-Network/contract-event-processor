@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"math/big"
 	"os"
@@ -67,7 +68,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	listener.CompileRegistryMap("config.yaml")
+	listener.CompileRegistryMap(fmt.Sprintf("config-%s.yaml", settings.Environment))
 	listener.ChainIndexer(blockNum)
 
 	// TODO(elffjs): Log this.
