@@ -9,7 +9,6 @@ import (
 	"math/big"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -121,9 +120,9 @@ func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int, sigCh
 	tick := time.NewTicker(2 * time.Second)
 	defer tick.Stop()
 
-	latestBlockAdded, err := bl.ResumeOrBeginAtHead(blockNum)
+	latestBlockAdded, err := bl.FetchStartingBlock(blockNum)
 	if err != nil {
-		bl.Logger.Err(err).Msg("error fetching last block added")
+		bl.Logger.Err(err).Msg("error fetching starting block")
 	}
 
 	for {
@@ -131,9 +130,9 @@ func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int, sigCh
 		case <-tick.C:
 			head, err := bl.Client.HeaderByNumber(context.Background(), nil)
 			if err != nil {
-				bl.Logger.Err(err).Msg("error getting current head of blockchain")
+				bl.Logger.Err(err).Msg("error head of blockchain")
 			}
-			confirmedHead := big.NewInt(0).Sub(head.Number, bl.Confirmations)
+			confirmedHead := new(big.Int).Sub(head.Number, bl.Confirmations)
 
 			if latestBlockAdded == nil {
 				c <- confirmedHead
@@ -141,9 +140,9 @@ func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int, sigCh
 				continue
 			}
 
-			for confirmedHead.Cmp(latestBlockAdded) == 1 {
-				c <- big.NewInt(0).Add(latestBlockAdded, big.NewInt(1))
-				latestBlockAdded = big.NewInt(0).Add(latestBlockAdded, big.NewInt(1))
+			for confirmedHead.Cmp(latestBlockAdded) > 0 {
+				c <- new(big.Int).Add(latestBlockAdded, big.NewInt(1))
+				latestBlockAdded = new(big.Int).Add(latestBlockAdded, big.NewInt(1))
 			}
 		case sig := <-sigChan:
 			log.Printf("Received signal, terminating: %s", sig)
@@ -153,7 +152,7 @@ func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int, sigCh
 	}
 }
 
-func (bl *BlockListener) ResumeOrBeginAtHead(blockNum *big.Int) (*big.Int, error) {
+func (bl *BlockListener) FetchStartingBlock(blockNum *big.Int) (*big.Int, error) {
 
 	if blockNum != nil {
 		return blockNum, nil
@@ -201,18 +200,14 @@ func (bl *BlockListener) ChainIndexer(blockNum *big.Int) {
 }
 
 func (bl *BlockListener) ProcessBlock(blockNum *big.Int) error {
-	bl.Logger.Info().Int64("blockNumber", blockNum.Int64()).Msg("processing")
+	bl.Logger.Debug().Int64("blockNumber", blockNum.Int64()).Msg("processing")
 	head, err := bl.Client.HeaderByNumber(context.Background(), blockNum)
 	if err != nil {
 		return err
 	}
 
 	blockHash := head.Hash()
-	t, err := strconv.ParseInt(strconv.Itoa(int(head.Time)), 10, 64)
-	if err != nil {
-		return err
-	}
-	tm := time.Unix(t, 0).UTC()
+	tm := time.Unix(int64(head.Time), 0)
 
 	fil := ethereum.FilterQuery{
 		BlockHash: &blockHash,
