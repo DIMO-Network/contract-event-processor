@@ -115,14 +115,11 @@ func (bl *BlockListener) CompileRegistryMap(configPath string) {
 
 }
 
-func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int) {
+func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int, sigChan chan os.Signal) {
 
 	// should this be one second now that we're waiting?
 	tick := time.NewTicker(2 * time.Second)
 	defer tick.Stop()
-
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
 	latestBlockAdded, err := bl.ResumeOrBeginAtHead(blockNum)
 	if err != nil {
@@ -189,7 +186,10 @@ func (bl *BlockListener) ChainIndexer(blockNum *big.Int) {
 	bl.Logger.Info().Msg("chain indexer starting")
 	blockNumChannel := make(chan *big.Int)
 
-	go bl.PollNewBlocks(blockNum, blockNumChannel)
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	go bl.PollNewBlocks(blockNum, blockNumChannel, sigChan)
 
 	for block := range blockNumChannel {
 		err := bl.ProcessBlock(block)
