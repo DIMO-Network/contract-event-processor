@@ -126,7 +126,7 @@ func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int) {
 
 	latestBlockAdded, err := bl.ResumeOrBeginAtHead(blockNum)
 	if err != nil {
-		bl.Logger.Err(err)
+		bl.Logger.Err(err).Msg("error fetching last block added")
 	}
 
 	for {
@@ -134,7 +134,7 @@ func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int) {
 		case <-tick.C:
 			head, err := bl.Client.HeaderByNumber(context.Background(), nil)
 			if err != nil {
-				bl.Logger.Err(err)
+				bl.Logger.Err(err).Msg("error getting current head of blockchain")
 			}
 			confirmedHead := big.NewInt(0).Sub(head.Number, bl.Confirmations)
 
@@ -194,7 +194,7 @@ func (bl *BlockListener) ChainIndexer(blockNum *big.Int) {
 	for block := range blockNumChannel {
 		err := bl.ProcessBlock(block)
 		if err != nil {
-			bl.Logger.Err(err)
+			bl.Logger.Err(err).Msg("error processing blocks")
 		}
 	}
 
