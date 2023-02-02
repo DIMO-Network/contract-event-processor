@@ -14,6 +14,9 @@ spec:
     {{ $key }} : {{ $val }}
     {{- end}}
   topicName: {{ $item.name }}
+  {{- if $item.partitions }}
+  partitions: {{ $item.partitions }}
+  {{- end }}
 ---
 {{- end}}
 {{- end}}

@@ -25,7 +25,8 @@ COPY --from=build /etc/passwd /etc/passwd
 COPY --from=build /go/src/github.com/DIMO-Network/contract-event-processor/target/bin/contract-event-processor .
 COPY --from=build /go/src/github.com/DIMO-Network/contract-event-processor/migrations ./migrations
 COPY --from=build /go/src/github.com/DIMO-Network/contract-event-processor/abi ./abi
-COPY --from=build /go/src/github.com/DIMO-Network/contract-event-processor/config.yaml .
+COPY --from=build /go/src/github.com/DIMO-Network/contract-event-processor/config-dev.yaml .
+COPY --from=build /go/src/github.com/DIMO-Network/contract-event-processor/config-prod.yaml .
 
 USER dimo
 
