@@ -115,7 +115,6 @@ func (bl *BlockListener) CompileRegistryMap(configPath string) {
 }
 
 func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int, sigChan chan os.Signal) {
-
 	// should this be one second now that we're waiting?
 	tick := time.NewTicker(2 * time.Second)
 	defer tick.Stop()
@@ -153,7 +152,6 @@ func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int, sigCh
 }
 
 func (bl *BlockListener) FetchStartingBlock(blockNum *big.Int) (*big.Int, error) {
-
 	if blockNum != nil {
 		return blockNum, nil
 	}
@@ -181,7 +179,6 @@ func (bl *BlockListener) RecordBlock(head *types.Header) error {
 }
 
 func (bl *BlockListener) ChainIndexer(blockNum *big.Int) {
-
 	bl.Logger.Info().Msg("chain indexer starting")
 	blockNumChannel := make(chan *big.Int)
 
@@ -196,7 +193,6 @@ func (bl *BlockListener) ChainIndexer(blockNum *big.Int) {
 			bl.Logger.Err(err).Msg("error processing blocks")
 		}
 	}
-
 }
 
 func (bl *BlockListener) ProcessBlock(blockNum *big.Int) error {
