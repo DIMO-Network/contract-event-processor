@@ -5,12 +5,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"math/big"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -24,13 +22,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	_ "github.com/lib/pq"
 	"github.com/rs/zerolog"
 	"github.com/segmentio/ksuid"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 	"gopkg.in/yaml.v3"
-
-	_ "github.com/lib/pq"
 )
 
 type BlockListener struct {
@@ -117,109 +114,102 @@ func (bl *BlockListener) CompileRegistryMap(configPath string) {
 
 }
 
-// fetch the most recently indexed block or return latest block
-func (bl *BlockListener) GetBlockHead(blockNum *big.Int) (*types.Header, error) {
-
-	if blockNum != nil {
-		bl.Logger.Info().Int64("block number", blockNum.Int64()).Msgf("setting block head to passed value: %v", blockNum.Int64())
-		return bl.Client.HeaderByNumber(context.Background(), blockNum)
-	}
-
-	resp, err := models.Blocks(qm.OrderBy(models.BlockColumns.Number+" DESC")).One(context.Background(), bl.DB.DBS().Reader)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			bl.Logger.Info().Msg("no value passed or found in db; setting block head to current head minus five")
-			h, e := bl.Client.HeaderByNumber(context.Background(), nil)
-			if e != nil {
-				return nil, e
-			}
-			return bl.Client.HeaderByNumber(context.Background(), new(big.Int).Sub(h.Number, bl.Confirmations))
-		}
-		return nil, err
-	}
-
-	bl.Logger.Info().Int64("block number", resp.Number).Msgf("setting block head to most recently processed, found in db plus one: %v", resp.Number+1)
-	return bl.Client.HeaderByNumber(context.Background(), new(big.Int).Add(big.NewInt(resp.Number), big.NewInt(1)))
-}
-
-// fetch the current block that hasn't yet been indexed
-func (bl *BlockListener) GetNextBlock(block *types.Header) (*types.Header, error) {
-	nextBlock := new(big.Int).Add(block.Number, big.NewInt(1))
-	head, err := bl.Client.HeaderByNumber(context.Background(), nextBlock)
-
-	if err == ethereum.NotFound {
-		time.Sleep(2 * time.Second)
-		head, err = bl.GetNextBlock(block)
-	}
-
-	return head, err
-}
-
-// fetch the current block that hasn't yet been indexed
-func (bl *BlockListener) RecordBlock(block *types.Header) error {
-	processedBlock := models.Block{
-		Number: block.Number.Int64(),
-		Hash:   block.Hash().Bytes(),
-	}
-
-	return processedBlock.Insert(context.Background(), bl.DB.DBS().Writer, boil.Infer())
-}
-
-func (bl *BlockListener) ChainIndexer(blockNum *big.Int) {
-
+func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int, sigChan chan os.Signal) {
+	// should this be one second now that we're waiting?
 	tick := time.NewTicker(2 * time.Second)
 	defer tick.Stop()
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-
-	fmt.Println("Running...")
-
-	head, err := bl.GetBlockHead(blockNum)
+	latestBlockAdded, err := bl.FetchStartingBlock(blockNum)
 	if err != nil {
-		bl.Logger.Fatal().Int64("block number", blockNum.Int64()).Msgf("error fetching block head: %v", err)
+		bl.Logger.Err(err).Msg("error fetching starting block")
 	}
 
 	for {
 		select {
 		case <-tick.C:
-
-			err = bl.ProcessBlock(bl.Client, head)
+			head, err := bl.Client.HeaderByNumber(context.Background(), nil)
 			if err != nil {
-				log.Fatal(err)
+				bl.Logger.Err(err).Msg("error head of blockchain")
+			}
+			confirmedHead := new(big.Int).Sub(head.Number, bl.Confirmations)
+
+			if latestBlockAdded == nil {
+				c <- confirmedHead
+				latestBlockAdded = confirmedHead
+				continue
 			}
 
-			err = bl.RecordBlock(head)
-			if err != nil {
-				log.Fatal(err)
+			for confirmedHead.Cmp(latestBlockAdded) > 0 {
+				c <- new(big.Int).Add(latestBlockAdded, big.NewInt(1))
+				latestBlockAdded = new(big.Int).Add(latestBlockAdded, big.NewInt(1))
 			}
-			head, err = bl.GetNextBlock(head)
-			if err != nil {
-				log.Fatal(err)
-			}
-
 		case sig := <-sigChan:
-			log.Printf("Received signal, terminating: %s", sig)
+			bl.Logger.Info().Msgf("Received signal, terminating: %s", sig)
+			close(c)
 			return
 		}
 	}
-
 }
 
-func (bl *BlockListener) ProcessBlock(client *ethclient.Client, head *types.Header) error {
-	log.Printf("Processing block %s", head.Number)
-	blockHash := head.Hash()
-	t, err := strconv.ParseInt(strconv.Itoa(int(head.Time)), 10, 64)
+func (bl *BlockListener) FetchStartingBlock(blockNum *big.Int) (*big.Int, error) {
+	if blockNum != nil {
+		return blockNum, nil
+	}
+
+	resp, err := models.Blocks(qm.OrderBy(models.BlockColumns.Number+" DESC")).One(context.Background(), bl.DB.DBS().Reader)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return big.NewInt(resp.Number), nil
+}
+
+// RecordBlock store block number and hash after processing
+func (bl *BlockListener) RecordBlock(head *types.Header) error {
+	processedBlock := models.Block{
+		Number: head.Number.Int64(),
+		Hash:   head.Hash().Bytes(),
+	}
+
+	// on conflict, update the time that the block was processed at
+	return processedBlock.Upsert(context.Background(), bl.DB.DBS().Writer, true, []string{"number"}, boil.Whitelist("processed_at"), boil.Infer())
+}
+
+func (bl *BlockListener) ChainIndexer(blockNum *big.Int) {
+	bl.Logger.Info().Msg("chain indexer starting")
+	blockNumChannel := make(chan *big.Int)
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	go bl.PollNewBlocks(blockNum, blockNumChannel, sigChan)
+
+	for block := range blockNumChannel {
+		err := bl.ProcessBlock(block)
+		if err != nil {
+			bl.Logger.Err(err).Msg("error processing blocks")
+		}
+	}
+}
+
+func (bl *BlockListener) ProcessBlock(blockNum *big.Int) error {
+	bl.Logger.Debug().Int64("blockNumber", blockNum.Int64()).Msg("processing")
+	head, err := bl.Client.HeaderByNumber(context.Background(), blockNum)
 	if err != nil {
 		return err
 	}
-	tm := time.Unix(t, 0).UTC()
+
+	blockHash := head.Hash()
+	tm := time.Unix(int64(head.Time), 0)
 
 	fil := ethereum.FilterQuery{
 		BlockHash: &blockHash,
 		Addresses: bl.Contracts,
 	}
-	logs, err := client.FilterLogs(context.Background(), fil)
+	logs, err := bl.Client.FilterLogs(context.Background(), fil)
 	if err != nil {
 		return err
 	}
@@ -289,5 +279,5 @@ func (bl *BlockListener) ProcessBlock(client *ethclient.Client, head *types.Head
 		return err
 	}
 
-	return nil
+	return bl.RecordBlock(head)
 }
