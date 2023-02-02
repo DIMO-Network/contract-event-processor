@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/DIMO-Network/contract-event-processor/internal/config"
+	"github.com/DIMO-Network/contract-event-processor/internal/infrastructure/metrics"
 	"github.com/DIMO-Network/contract-event-processor/models"
 	"github.com/DIMO-Network/shared"
 	"github.com/DIMO-Network/shared/db"
@@ -23,6 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	_ "github.com/lib/pq"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
 	"github.com/segmentio/ksuid"
 	"github.com/volatiletech/sqlboiler/v4/boil"
@@ -134,12 +136,14 @@ func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int, sigCh
 			confirmedHead := new(big.Int).Sub(head.Number, bl.Confirmations)
 
 			if latestBlockAdded == nil {
+				metrics.BlocksInQueue.Set(1)
 				c <- confirmedHead
 				latestBlockAdded = confirmedHead
 				continue
 			}
 
 			for confirmedHead.Cmp(latestBlockAdded) > 0 {
+				metrics.BlocksInQueue.Set(float64(new(big.Int).Sub(confirmedHead, latestBlockAdded).Int64()))
 				c <- new(big.Int).Add(latestBlockAdded, big.NewInt(1))
 				latestBlockAdded = new(big.Int).Add(latestBlockAdded, big.NewInt(1))
 			}
@@ -178,6 +182,36 @@ func (bl *BlockListener) RecordBlock(head *types.Header) error {
 	return processedBlock.Upsert(context.Background(), bl.DB.DBS().Writer, true, []string{"number"}, boil.Whitelist("processed_at"), boil.Infer())
 }
 
+func (bl *BlockListener) GetBlockHead(blockNum *big.Int) (*types.Header, error) {
+	timer := prometheus.NewTimer(metrics.AlchemyHeadPollResponseTime)
+	head, err := bl.Client.HeaderByNumber(context.Background(), blockNum)
+	if err != nil {
+		metrics.FailedHeadPolls.Inc()
+		return nil, err
+	}
+	timer.ObserveDuration()
+	metrics.SuccessfulHeadPolls.Inc()
+
+	return head, err
+}
+
+func (bl *BlockListener) GetFilteredBlockLogs(bHash common.Hash, contracts []common.Address) ([]types.Log, error) {
+	timer := prometheus.NewTimer(metrics.FilteredLogsResponseTime)
+	fil := ethereum.FilterQuery{
+		BlockHash: &bHash,
+		Addresses: bl.Contracts,
+	}
+
+	logs, err := bl.Client.FilterLogs(context.Background(), fil)
+	if err != nil {
+		metrics.FailedFilteredLogsFetch.Inc()
+		return []types.Log{}, nil
+	}
+	timer.ObserveDuration()
+	metrics.SuccessfulFilteredLogsFetch.Inc()
+	return logs, err
+}
+
 func (bl *BlockListener) ChainIndexer(blockNum *big.Int) {
 	bl.Logger.Info().Msg("chain indexer starting")
 	blockNumChannel := make(chan *big.Int)
@@ -197,19 +231,14 @@ func (bl *BlockListener) ChainIndexer(blockNum *big.Int) {
 
 func (bl *BlockListener) ProcessBlock(blockNum *big.Int) error {
 	bl.Logger.Debug().Int64("blockNumber", blockNum.Int64()).Msg("processing")
-	head, err := bl.Client.HeaderByNumber(context.Background(), blockNum)
+	head, err := bl.GetBlockHead(blockNum)
 	if err != nil {
 		return err
 	}
 
-	blockHash := head.Hash()
 	tm := time.Unix(int64(head.Time), 0)
 
-	fil := ethereum.FilterQuery{
-		BlockHash: &blockHash,
-		Addresses: bl.Contracts,
-	}
-	logs, err := bl.Client.FilterLogs(context.Background(), fil)
+	logs, err := bl.GetFilteredBlockLogs(head.Hash(), bl.Contracts)
 	if err != nil {
 		return err
 	}
@@ -256,7 +285,11 @@ func (bl *BlockListener) ProcessBlock(blockNum *big.Int) error {
 			_, _, err = bl.Producer.SendMessage(message)
 			if err != nil {
 				bl.Logger.Info().Str(bl.EventStreamTopic, ev.Name).Str("blockNumber", head.Number.String()).Str("contract", vLog.Address.String()).Str("event", vLog.TxHash.String()).Msgf("error sending event to stream: %v", err)
+				metrics.KafkaEventMessageFailedToSend.Inc()
 			}
+
+			metrics.EventsEmitted.Inc()
+			metrics.KafkaEventMessageSent.Inc()
 
 		}
 	}
@@ -264,7 +297,7 @@ func (bl *BlockListener) ProcessBlock(blockNum *big.Int) error {
 	event := shared.CloudEvent[Event]{
 		ID:      ksuid.New().String(),
 		Source:  head.Number.String(),
-		Subject: blockHash.String(),
+		Subject: head.Hash().String(),
 		Type:    "zone.dimo.blockchain.block.processed",
 		Time:    tm,
 		Data: Event{
@@ -279,5 +312,15 @@ func (bl *BlockListener) ProcessBlock(blockNum *big.Int) error {
 		return err
 	}
 
-	return bl.RecordBlock(head)
+	err = bl.RecordBlock(head)
+	if err != nil {
+		metrics.ProcessedBlockNumberStoreFailed.Inc()
+		return err
+	}
+
+	metrics.ProcessedBlockNumberStored.Inc()
+	metrics.BlocksProcessed.Inc()
+	metrics.BlocksInQueue.Dec()
+
+	return nil
 }
