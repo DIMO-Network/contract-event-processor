@@ -145,7 +145,7 @@ func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int, sigCh
 				latestBlockAdded = new(big.Int).Add(latestBlockAdded, big.NewInt(1))
 			}
 		case sig := <-sigChan:
-			log.Printf("Received signal, terminating: %s", sig)
+			bl.Logger.Info().Msgf("Received signal, terminating: %s", sig)
 			close(c)
 			return
 		}
