@@ -1,3 +1,5 @@
 contracts:
   - address: 0x90C4D6113Ec88dd4BDf12f26DB2b3998fd13A144
     abi: abi/VehicleId.json
+  - address: 0x8129f3cD3EBA82136Caf5aB87E2321c958Da5B63
+    abi: abi/baseline_rewards.json
