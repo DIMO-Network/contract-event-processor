@@ -42,6 +42,8 @@ type BlockListener struct {
 	Confirmations    *big.Int
 	DB               db.Store
 	ABIs             map[common.Address]abi.ABI
+	Limit            int
+	DevTest          bool
 }
 
 type Config struct {
@@ -49,6 +51,7 @@ type Config struct {
 		Address    common.Address
 		StartBlock *big.Int `yaml:"startBlock"`
 		ABI        string
+		Chain      string
 		Events     []string
 	}
 }
@@ -58,8 +61,18 @@ type Block struct {
 	Number *big.Int
 }
 
-func NewBlockListener(s config.Settings, logger zerolog.Logger, producer sarama.SyncProducer) (BlockListener, error) {
-	c, err := ethclient.Dial(s.EthereumRPCURL)
+func NewBlockListener(s config.Settings, logger zerolog.Logger, producer sarama.SyncProducer, chain string) (BlockListener, error) {
+
+	rpcURL := s.PolygonRPCURL
+
+	if chain == "ethereum" {
+		rpcURL = s.EthereumRPCURL
+	}
+	if chain == "mumbai" {
+		rpcURL = s.MumbaiRPCURL
+	}
+
+	c, err := ethclient.Dial(rpcURL)
 	if err != nil {
 		return BlockListener{}, err
 	}
@@ -77,7 +90,7 @@ func NewBlockListener(s config.Settings, logger zerolog.Logger, producer sarama.
 	}, nil
 }
 
-func (bl *BlockListener) CompileRegistryMap(configPath string) {
+func (bl *BlockListener) CompileRegistryMap(configPath, chain string) {
 	var conf Config
 	cb, err := os.ReadFile(configPath)
 	if err != nil {
@@ -92,6 +105,9 @@ func (bl *BlockListener) CompileRegistryMap(configPath string) {
 	bl.Registry = make(map[common.Address]map[common.Hash]abi.Event)
 	bl.ABIs = make(map[common.Address]abi.ABI)
 	for _, contract := range conf.Contracts {
+		if contract.Chain != chain {
+			continue
+		}
 		bl.Contracts = append(bl.Contracts, contract.Address)
 		f, err := os.Open(contract.ABI)
 		if err != nil {
@@ -113,11 +129,9 @@ func (bl *BlockListener) CompileRegistryMap(configPath string) {
 			bl.Registry[contract.Address][event.ID] = event
 		}
 	}
-
 }
 
 func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int, sigChan chan os.Signal) {
-	// should this be one second now that we're waiting?
 	tick := time.NewTicker(2 * time.Second)
 	defer tick.Stop()
 
@@ -222,10 +236,14 @@ func (bl *BlockListener) ChainIndexer(blockNum *big.Int) {
 	go bl.PollNewBlocks(blockNum, blockNumChannel, sigChan)
 
 	for block := range blockNumChannel {
+		if bl.Limit < 1 && bl.DevTest {
+			return
+		}
 		err := bl.ProcessBlock(block)
 		if err != nil {
 			bl.Logger.Err(err).Msg("error processing blocks")
 		}
+		bl.Limit--
 	}
 }
 
@@ -261,6 +279,7 @@ func (bl *BlockListener) ProcessBlock(blockNum *big.Int) error {
 					TransactionHash: vLog.TxHash.String(),
 					EventSignature:  vLog.Topics[0].String(),
 					Arguments:       make(map[string]any),
+					Index:           vLog.Index,
 				}}
 
 			var indexed abi.Arguments

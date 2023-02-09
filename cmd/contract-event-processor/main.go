@@ -1,11 +1,11 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"math/big"
 	"os"
-	"strconv"
 
 	"github.com/DIMO-Network/contract-event-processor/internal/config"
 	"github.com/DIMO-Network/contract-event-processor/internal/services"
@@ -25,7 +25,16 @@ func main() {
 		logger.Fatal().Err(err)
 	}
 
+	limit := flag.Int("limit", -1, "limit number of block iterations during development")
+	head := flag.Int("head", -1, "will start processing from next block")
+	chain := flag.String("chain", "polygon", "set chain to process blocks on")
+	flag.Parse()
+
 	var blockNum *big.Int
+	if *head > 0 {
+		blockNum = big.NewInt(int64(*head))
+	}
+
 	if len(os.Args) > 1 {
 		switch subCommand := os.Args[1]; subCommand {
 		case "migrate":
@@ -38,15 +47,6 @@ func main() {
 			}
 			migrateDatabase(logger, &settings, command)
 			return
-		case "override":
-			if len(os.Args) > 2 {
-				n, err := strconv.Atoi(os.Args[2])
-				if err != nil {
-					logger.Fatal().Err(err)
-				}
-				blockNum = big.NewInt(int64(n))
-
-			}
 		}
 	}
 
@@ -63,12 +63,17 @@ func main() {
 		log.Fatal(err)
 	}
 
-	listener, err := services.NewBlockListener(settings, logger, producer)
+	listener, err := services.NewBlockListener(settings, logger, producer, *chain)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	listener.CompileRegistryMap(fmt.Sprintf("config-%s.yaml", settings.Environment))
+	listener.Limit = *limit
+	if listener.Limit > 0 {
+		listener.DevTest = true
+	}
+
+	listener.CompileRegistryMap(fmt.Sprintf("config-%s.yaml", settings.Environment), *chain)
 	listener.ChainIndexer(blockNum)
 
 	// TODO(elffjs): Log this.

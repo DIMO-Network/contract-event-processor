@@ -12,6 +12,7 @@ type Event struct {
 	BlockCompleted  bool           `json:"blockCompleted,omitempty"`
 	EventSignature  string         `json:"eventSignature,omitempty"`
 	EventName       string         `json:"eventName,omitempty"`
+	Index           uint           `json:"index,omitempty"`
 }
 
 func StartKafkaStream(s config.Settings) (sarama.Client, error) {

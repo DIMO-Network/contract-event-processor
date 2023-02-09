@@ -1,5 +1,12 @@
 contracts:
-  - address: 0xbA5738a18d83D41847dfFbDC6101d37C69c9B0cF
+  - address: 0x90C4D6113Ec88dd4BDf12f26DB2b3998fd13A144
     abi: abi/VehicleId.json
-  - address: 0x8129f3cD3EBA82136Caf5aB87E2321c958Da5B63
-    abi: abi/baseline_rewards.json
+  - address: 0xE261D618a959aFfFd53168Cd07D12E37B26761db
+    chain: polygon
+    abi: abi/token.json
+  - address: 0x5fab9761d60419c9eeebe3915a8fa1ed7e8d2e1b
+    chain: ethereum
+    abi: abi/token.json
+  - address: 0x80Ee7ec4493A1d7975ab900F94dB25ba7C688201
+    chain: mumbai
+    abi: abi/token.json
