@@ -1,11 +1,13 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"math/big"
 	"os"
+	"sync"
 
 	"github.com/DIMO-Network/contract-event-processor/internal/config"
 	"github.com/DIMO-Network/contract-event-processor/internal/services"
@@ -25,9 +27,12 @@ func main() {
 		logger.Fatal().Err(err)
 	}
 
+	if len(settings.Chains) < 1 {
+		logger.Fatal().Err(errors.New("at least one valid chain ID must be passed"))
+	}
+
 	limit := flag.Int("limit", -1, "limit number of block iterations during development")
 	head := flag.Int("head", -1, "will start processing from next block")
-	chain := flag.String("chain", "polygon", "set chain to process blocks on")
 	flag.Parse()
 
 	var blockNum *big.Int
@@ -63,18 +68,24 @@ func main() {
 		log.Fatal(err)
 	}
 
-	listener, err := services.NewBlockListener(settings, logger, producer, *chain)
-	if err != nil {
-		log.Fatal(err)
+	var wg sync.WaitGroup
+
+	for _, chain := range settings.Chains {
+		listener, err := services.NewBlockListener(settings, logger, producer, fmt.Sprintf("config-%s.yaml", settings.Environment), chain)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		listener.Limit = *limit
+		if listener.Limit > 0 {
+			listener.DevTest = true
+		}
+
+		wg.Add(1)
+		go listener.ChainIndexer(blockNum, wg)
 	}
 
-	listener.Limit = *limit
-	if listener.Limit > 0 {
-		listener.DevTest = true
-	}
-
-	listener.CompileRegistryMap(fmt.Sprintf("config-%s.yaml", settings.Environment), *chain)
-	listener.ChainIndexer(blockNum)
+	wg.Wait()
 
 	// TODO(elffjs): Log this.
 	_ = monApp.Shutdown()

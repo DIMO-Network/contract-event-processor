@@ -5,10 +5,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"math/big"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -21,7 +23,8 @@ import (
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
+
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	_ "github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus"
@@ -35,11 +38,14 @@ import (
 type BlockListener struct {
 	Client           *ethclient.Client
 	Contracts        []common.Address
+	ChainID          *big.Int
+	Chain            string
 	Logger           zerolog.Logger
 	Producer         sarama.SyncProducer
 	EventStreamTopic string
 	Registry         map[common.Address]map[common.Hash]abi.Event
 	Confirmations    *big.Int
+	StartBlock       *big.Int
 	DB               db.Store
 	ABIs             map[common.Address]abi.ABI
 	Limit            int
@@ -54,43 +60,40 @@ type Config struct {
 		Chain      string
 		Events     []string
 	}
+	Chains []ChainDetails
+}
+
+type ChainDetails struct {
+	Chain      string   `yaml:"chain"`
+	RPCURL     string   `yaml:"rpc_url"`
+	StartBlock *big.Int `yaml:"startBlock"`
+	Contracts  []contractDetails
+}
+
+type contractDetails struct {
+	Address common.Address `yaml:"address"`
+	ABI     string         `yaml:"abi"`
+	Events  []string       `yaml:"events"`
+}
+
+type Event struct {
+	EventName       string         `json:"eventName,omitempty"`
+	Block           Block          `json:"block,omitempty"`
+	Index           uint           `json:"index,omitempty"`
+	Contract        string         `json:"contract,omitempty"`
+	TransactionHash string         `json:"transactionHash,omitempty"`
+	EventSignature  string         `json:"eventSignature,omitempty"`
+	Arguments       map[string]any `json:"arguments,omitempty"`
+	BlockCompleted  bool
 }
 
 type Block struct {
-	Hash   common.Hash
-	Number *big.Int
+	Hash   common.Hash `json:"hash,omitempty"`
+	Number *big.Int    `json:"number,omitempty"`
+	Time   time.Time   `json:"time,omitempty"`
 }
 
-func NewBlockListener(s config.Settings, logger zerolog.Logger, producer sarama.SyncProducer, chain string) (BlockListener, error) {
-
-	rpcURL := s.PolygonRPCURL
-
-	if chain == "ethereum" {
-		rpcURL = s.EthereumRPCURL
-	}
-	if chain == "mumbai" {
-		rpcURL = s.MumbaiRPCURL
-	}
-
-	c, err := ethclient.Dial(rpcURL)
-	if err != nil {
-		return BlockListener{}, err
-	}
-
-	pdb := db.NewDbConnectionFromSettings(context.TODO(), &s.DB, true)
-	pdb.WaitForDB(logger)
-
-	return BlockListener{
-		Client:           c,
-		EventStreamTopic: s.ContractEventTopic,
-		Logger:           logger,
-		Producer:         producer,
-		Confirmations:    big.NewInt(int64(s.BlockConfirmations)),
-		DB:               pdb,
-	}, nil
-}
-
-func (bl *BlockListener) CompileRegistryMap(configPath, chain string) {
+func NewBlockListener(s config.Settings, logger zerolog.Logger, producer sarama.SyncProducer, configPath, chain string) (BlockListener, error) {
 	var conf Config
 	cb, err := os.ReadFile(configPath)
 	if err != nil {
@@ -102,12 +105,53 @@ func (bl *BlockListener) CompileRegistryMap(configPath, chain string) {
 		log.Fatal(err)
 	}
 
-	bl.Registry = make(map[common.Address]map[common.Hash]abi.Event)
-	bl.ABIs = make(map[common.Address]abi.ABI)
-	for _, contract := range conf.Contracts {
-		if contract.Chain != chain {
+	var rpcURL string
+	var contractDetails []contractDetails
+	var startBlock *big.Int
+	for _, c := range conf.Chains {
+		if c.Chain != chain {
 			continue
 		}
+		rpcURL = c.RPCURL + s.APIKey
+		contractDetails = c.Contracts
+		startBlock = c.StartBlock
+	}
+
+	c, err := ethclient.Dial(rpcURL)
+	if err != nil {
+		return BlockListener{}, err
+	}
+
+	pdb := db.NewDbConnectionFromSettings(context.TODO(), &s.DB, true)
+	pdb.WaitForDB(logger)
+
+	chainID, err := c.ChainID(context.Background())
+	if err != nil {
+		return BlockListener{}, err
+	}
+
+	b := BlockListener{
+		Client:           c,
+		EventStreamTopic: s.ContractEventTopic,
+		Logger:           logger,
+		Producer:         producer,
+		Confirmations:    big.NewInt(int64(s.BlockConfirmations)),
+		StartBlock:       startBlock,
+		DB:               pdb,
+		ChainID:          chainID,
+		Chain:            chain,
+	}
+
+	b.CompileRegistryMap(contractDetails)
+
+	return b, nil
+}
+
+func (bl *BlockListener) CompileRegistryMap(cd []contractDetails) {
+
+	bl.Registry = make(map[common.Address]map[common.Hash]abi.Event)
+	bl.ABIs = make(map[common.Address]abi.ABI)
+	for _, contract := range cd {
 		bl.Contracts = append(bl.Contracts, contract.Address)
 		f, err := os.Open(contract.ABI)
 		if err != nil {
@@ -148,7 +192,7 @@ func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int, sigCh
 				bl.Logger.Err(err).Msg("error head of blockchain")
 			}
 			confirmedHead := new(big.Int).Sub(head.Number, bl.Confirmations)
-
+			fmt.Printf("\tHead: %v\t Confirmed Head: %v", head.Number, confirmedHead)
 			if latestBlockAdded == nil {
 				metrics.BlocksInQueue.Set(1)
 				c <- confirmedHead
@@ -160,6 +204,7 @@ func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int, sigCh
 				metrics.BlocksInQueue.Set(float64(new(big.Int).Sub(confirmedHead, latestBlockAdded).Int64()))
 				c <- new(big.Int).Add(latestBlockAdded, big.NewInt(1))
 				latestBlockAdded = new(big.Int).Add(latestBlockAdded, big.NewInt(1))
+				fmt.Printf("\tLatestBlockAdded: %v", latestBlockAdded.Int64())
 			}
 		case sig := <-sigChan:
 			bl.Logger.Info().Msgf("Received signal, terminating: %s", sig)
@@ -186,17 +231,16 @@ func (bl *BlockListener) FetchStartingBlock(blockNum *big.Int) (*big.Int, error)
 }
 
 // RecordBlock store block number and hash after processing
-func (bl *BlockListener) RecordBlock(head *types.Header) error {
+func (bl *BlockListener) RecordBlock(head *ethtypes.Header) error {
 	processedBlock := models.Block{
-		Number: head.Number.Int64(),
-		Hash:   head.Hash().Bytes(),
+		ChainID: bl.ChainID.Int64(),
+		Number:  head.Number.Int64(),
+		Hash:    head.Hash().Bytes(),
 	}
-
-	// on conflict, update the time that the block was processed at
-	return processedBlock.Upsert(context.Background(), bl.DB.DBS().Writer, true, []string{"number"}, boil.Whitelist("processed_at"), boil.Infer())
+	return processedBlock.Upsert(context.Background(), bl.DB.DBS().Writer, true, []string{"chain_id"}, boil.Whitelist("number", "hash", "processed_at"), boil.Infer())
 }
 
-func (bl *BlockListener) GetBlockHead(blockNum *big.Int) (*types.Header, error) {
+func (bl *BlockListener) GetBlockHead(blockNum *big.Int) (*ethtypes.Header, error) {
 	timer := prometheus.NewTimer(metrics.AlchemyHeadPollResponseTime)
 	head, err := bl.Client.HeaderByNumber(context.Background(), blockNum)
 	if err != nil {
@@ -209,7 +253,7 @@ func (bl *BlockListener) GetBlockHead(blockNum *big.Int) (*types.Header, error) 
 	return head, err
 }
 
-func (bl *BlockListener) GetFilteredBlockLogs(bHash common.Hash, contracts []common.Address) ([]types.Log, error) {
+func (bl *BlockListener) GetFilteredBlockLogs(bHash common.Hash, contracts []common.Address) ([]ethtypes.Log, error) {
 	timer := prometheus.NewTimer(metrics.FilteredLogsResponseTime)
 	fil := ethereum.FilterQuery{
 		BlockHash: &bHash,
@@ -219,14 +263,15 @@ func (bl *BlockListener) GetFilteredBlockLogs(bHash common.Hash, contracts []com
 	logs, err := bl.Client.FilterLogs(context.Background(), fil)
 	if err != nil {
 		metrics.FailedFilteredLogsFetch.Inc()
-		return []types.Log{}, nil
+		return []ethtypes.Log{}, nil
 	}
 	timer.ObserveDuration()
 	metrics.SuccessfulFilteredLogsFetch.Inc()
 	return logs, err
 }
 
-func (bl *BlockListener) ChainIndexer(blockNum *big.Int) {
+func (bl *BlockListener) ChainIndexer(blockNum *big.Int, wg sync.WaitGroup) {
+	defer wg.Done()
 	bl.Logger.Info().Msg("chain indexer starting")
 	blockNumChannel := make(chan *big.Int)
 
@@ -269,17 +314,21 @@ func (bl *BlockListener) ProcessBlock(blockNum *big.Int) error {
 		if ev, ok := bl.Registry[vLog.Address][vLog.Topics[0]]; ok {
 			event := shared.CloudEvent[Event]{
 				ID:      ksuid.New().String(),
-				Source:  head.Number.String(),
-				Subject: vLog.TxHash.String(),
-				Type:    "zone.dimo.contract.event",
+				Source:  fmt.Sprintf("%v/%v", bl.Chain, bl.ChainID),
+				Subject: vLog.Address.String(),
+				Type:    "zone.dimo.contract.event.v2",
 				Time:    tm,
 				Data: Event{
-					EventName:       ev.Name,
+					EventName: ev.Name,
+					Block: Block{
+						Number: head.Number,
+						Hash:   head.Hash(),
+						Time:   tm},
+					Index:           vLog.Index,
 					Contract:        vLog.Address.String(),
 					TransactionHash: vLog.TxHash.String(),
 					EventSignature:  vLog.Topics[0].String(),
 					Arguments:       make(map[string]any),
-					Index:           vLog.Index,
 				}}
 
 			var indexed abi.Arguments
@@ -314,12 +363,15 @@ func (bl *BlockListener) ProcessBlock(blockNum *big.Int) error {
 	}
 
 	event := shared.CloudEvent[Event]{
-		ID:      ksuid.New().String(),
-		Source:  head.Number.String(),
-		Subject: head.Hash().String(),
-		Type:    "zone.dimo.blockchain.block.processed",
-		Time:    tm,
+		ID:     ksuid.New().String(),
+		Source: fmt.Sprintf("%v/%v", bl.Chain, bl.ChainID),
+		Type:   "zone.dimo.blockchain.block.processed.v2",
+		Time:   tm,
 		Data: Event{
+			Block: Block{
+				Number: head.Number,
+				Hash:   head.Hash(),
+				Time:   tm},
 			BlockCompleted: true,
 		}}
 
