@@ -5,16 +5,6 @@ import (
 	"github.com/Shopify/sarama"
 )
 
-type Event struct {
-	Contract        string         `json:"contract,omitempty"`
-	TransactionHash string         `json:"transactionHash,omitempty"`
-	Arguments       map[string]any `json:"arguments,omitempty"`
-	BlockCompleted  bool           `json:"blockCompleted,omitempty"`
-	EventSignature  string         `json:"eventSignature,omitempty"`
-	EventName       string         `json:"eventName,omitempty"`
-	Index           uint           `json:"index,omitempty"`
-}
-
 func StartKafkaStream(s config.Settings) (sarama.Client, error) {
 
 	config := sarama.NewConfig()
