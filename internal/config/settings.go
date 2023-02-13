@@ -17,4 +17,8 @@ type Settings struct {
 	DB db.Settings `yaml:"DB"`
 
 	MonitoringPort string `yaml:"MONITORING_PORT"`
+
+	Chains []string `yaml:"CHAINS"`
+
+	APIKey string `yaml:"ALCHEMY_API_KEY"`
 }
