@@ -6,7 +6,14 @@ ALTER TABLE blocks
     DROP CONSTRAINT blocks_pkey;
 
 ALTER TABLE blocks
-    ADD chain_id bigint PRIMARY KEY NOT NULL;
+    ADD chain_id bigint;
+
+UPDATE blocks 
+SET chain_id = -1
+WHERE chain_id IS NULL;
+
+ALTER TABLE blocks
+    ALTER COLUMN chain_id SET NOT NULL;
 
 ALTER TABLE blocks
     ALTER COLUMN hash SET NOT NULL;
@@ -14,7 +21,9 @@ ALTER TABLE blocks
 ALTER TABLE blocks
     ALTER COLUMN number SET NOT NULL;
 
--- +goose StatementEnd
+ALTER TABLE blocks
+    ADD PRIMARY KEY (chain_id);
+
 
 -- +goose Down
 -- +goose StatementBegin
