@@ -1,14 +1,18 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"math/big"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 
 	"github.com/DIMO-Network/contract-event-processor/internal/config"
 	"github.com/DIMO-Network/contract-event-processor/internal/services"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/DIMO-Network/shared"
 	"github.com/Shopify/sarama"
@@ -19,11 +23,15 @@ import (
 )
 
 func main() {
-	logger := zerolog.New(os.Stdout).With().Timestamp().Str("app", "event-stream-processor").Logger()
+	logger := zerolog.New(os.Stdout).With().Timestamp().Str("app", "contract-stream-processor").Logger()
 	settings, err := shared.LoadConfig[config.Settings]("settings.yaml")
 	if err != nil {
-		logger.Fatal().Err(err)
+		logger.Fatal().Err(err).Msg("Couldn't load settings.")
 	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	var group errgroup.Group
 
 	var blockNum *big.Int
 	if len(os.Args) > 1 {
@@ -45,12 +53,11 @@ func main() {
 					logger.Fatal().Err(err)
 				}
 				blockNum = big.NewInt(int64(n))
-
 			}
 		}
 	}
 
-	monApp := serveMonitoring(settings.MonitoringPort, &logger)
+	group.Go(func() error { return serveMonitoring(ctx, settings.MonitoringPort, &logger) })
 
 	kafkaClient, err := services.StartKafkaStream(settings)
 	if err != nil {
@@ -69,13 +76,21 @@ func main() {
 	}
 
 	listener.CompileRegistryMap(fmt.Sprintf("config-%s.yaml", settings.Environment))
-	listener.ChainIndexer(blockNum)
 
-	// TODO(elffjs): Log this.
-	_ = monApp.Shutdown()
+	blockChan := make(chan *services.Header)
+
+	group.Go(func() error { return listener.SubscribeNewBlocks(ctx, blockNum, blockChan) })
+
+	group.Go(func() error { return listener.ProcessBlocks(ctx, blockChan) })
+
+	sc := make(chan os.Signal, 1)
+	signal.Notify(sc, os.Interrupt, syscall.SIGTERM)
+	<-sc
+	cancel()
+	group.Wait()
 }
 
-func serveMonitoring(port string, logger *zerolog.Logger) *fiber.App {
+func serveMonitoring(ctx context.Context, port string, logger *zerolog.Logger) error {
 	monApp := fiber.New(fiber.Config{DisableStartupMessage: true})
 
 	// Health check.
@@ -89,6 +104,7 @@ func serveMonitoring(port string, logger *zerolog.Logger) *fiber.App {
 	}()
 
 	logger.Info().Str("port", port).Msg("Started monitoring web server.")
+	<-ctx.Done()
 
-	return monApp
+	return monApp.Shutdown()
 }
