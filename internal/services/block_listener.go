@@ -5,11 +5,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"math/big"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/DIMO-Network/contract-event-processor/internal/config"
@@ -64,8 +63,8 @@ func NewBlockListener(s config.Settings, logger zerolog.Logger, producer sarama.
 		return BlockListener{}, err
 	}
 
-	pdb := db.NewDbConnectionFromSettings(context.TODO(), &s.DB, true)
-	pdb.WaitForDB(logger)
+	// pdb := db.NewDbConnectionFromSettings(context.TODO(), &s.DB, true)
+	// pdb.WaitForDB(logger)
 
 	return BlockListener{
 		Client:           c,
@@ -73,7 +72,7 @@ func NewBlockListener(s config.Settings, logger zerolog.Logger, producer sarama.
 		Logger:           logger,
 		Producer:         producer,
 		Confirmations:    big.NewInt(int64(s.BlockConfirmations)),
-		DB:               pdb,
+		// DB:               pdb,
 	}, nil
 }
 
@@ -116,41 +115,50 @@ func (bl *BlockListener) CompileRegistryMap(configPath string) {
 
 }
 
-func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int, sigChan chan os.Signal) {
-	// should this be one second now that we're waiting?
+var bigOne = big.NewInt(1)
+
+type Header struct {
+	Number *big.Int
+	Hash   common.Hash
+	Time   uint64
+}
+
+func (bl *BlockListener) SubscribeNewBlocks(ctx context.Context, afterBlock *big.Int, ch chan<- *Header) error {
 	tick := time.NewTicker(2 * time.Second)
 	defer tick.Stop()
 
-	latestBlockAdded, err := bl.FetchStartingBlock(blockNum)
-	if err != nil {
-		bl.Logger.Err(err).Msg("error fetching starting block")
-	}
+	lastEmitted := afterBlock
 
+TickLoop:
 	for {
 		select {
 		case <-tick.C:
-			head, err := bl.Client.HeaderByNumber(context.Background(), nil)
+			head, err := bl.Client.BlockNumber(ctx)
 			if err != nil {
-				bl.Logger.Err(err).Msg("error head of blockchain")
-			}
-			confirmedHead := new(big.Int).Sub(head.Number, bl.Confirmations)
-
-			if latestBlockAdded == nil {
-				metrics.BlocksInQueue.Set(1)
-				c <- confirmedHead
-				latestBlockAdded = confirmedHead
+				bl.Logger.Err(err).Msg("Failed to retrieve head block number.")
 				continue
 			}
 
-			for confirmedHead.Cmp(latestBlockAdded) > 0 {
-				metrics.BlocksInQueue.Set(float64(new(big.Int).Sub(confirmedHead, latestBlockAdded).Int64()))
-				c <- new(big.Int).Add(latestBlockAdded, big.NewInt(1))
-				latestBlockAdded = new(big.Int).Add(latestBlockAdded, big.NewInt(1))
+			confirmedHead := new(big.Int).Sub(new(big.Int).SetUint64(head), bl.Confirmations)
+
+			for lastEmitted.Cmp(confirmedHead) < 0 {
+				toEmit := new(big.Int).Add(lastEmitted, bigOne)
+
+				b, err := bl.Client.HeaderByNumber(ctx, toEmit)
+				if err != nil {
+					bl.Logger.Err(err).Msgf("Failed to retrieve block header for %d.", toEmit)
+					continue TickLoop
+				}
+
+				select {
+				case ch <- &Header{Number: b.Number, Hash: b.Hash(), Time: b.Time}:
+					lastEmitted = toEmit
+				case <-ctx.Done():
+					return nil
+				}
 			}
-		case sig := <-sigChan:
-			bl.Logger.Info().Msgf("Received signal, terminating: %s", sig)
-			close(c)
-			return
+		case <-ctx.Done():
+			return nil
 		}
 	}
 }
@@ -172,10 +180,10 @@ func (bl *BlockListener) FetchStartingBlock(blockNum *big.Int) (*big.Int, error)
 }
 
 // RecordBlock store block number and hash after processing
-func (bl *BlockListener) RecordBlock(head *types.Header) error {
+func (bl *BlockListener) RecordBlock(head *Header) error {
 	processedBlock := models.Block{
 		Number: head.Number.Int64(),
-		Hash:   head.Hash().Bytes(),
+		Hash:   head.Hash.Bytes(),
 	}
 
 	// on conflict, update the time that the block was processed at
@@ -212,35 +220,29 @@ func (bl *BlockListener) GetFilteredBlockLogs(bHash common.Hash, contracts []com
 	return logs, err
 }
 
-func (bl *BlockListener) ChainIndexer(blockNum *big.Int) {
+func (bl *BlockListener) ProcessBlocks(ctx context.Context, ch <-chan *Header) error {
 	bl.Logger.Info().Msg("chain indexer starting")
-	blockNumChannel := make(chan *big.Int)
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-
-	go bl.PollNewBlocks(blockNum, blockNumChannel, sigChan)
-
-	for block := range blockNumChannel {
-		err := bl.ProcessBlock(block)
-		if err != nil {
-			bl.Logger.Err(err).Msg("error processing blocks")
+	for {
+		select {
+		case block := <-ch:
+			// Need to figure out how to retry and eventually kill the pod.
+			err := bl.ProcessBlock(ctx, block)
+			if err != nil {
+				bl.Logger.Err(err).Msg("error processing blocks")
+			}
+		case <-ctx.Done():
+			return nil
 		}
 	}
 }
 
-func (bl *BlockListener) ProcessBlock(blockNum *big.Int) error {
-	bl.Logger.Debug().Int64("blockNumber", blockNum.Int64()).Msg("processing")
-	head, err := bl.GetBlockHead(blockNum)
-	if err != nil {
-		return err
-	}
+func (bl *BlockListener) ProcessBlock(ctx context.Context, block *Header) error {
+	tm := time.Unix(int64(block.Time), 0)
 
-	tm := time.Unix(int64(head.Time), 0)
-
-	logs, err := bl.GetFilteredBlockLogs(head.Hash(), bl.Contracts)
+	logs, err := bl.Client.FilterLogs(ctx, ethereum.FilterQuery{BlockHash: &block.Hash, Addresses: bl.Contracts})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to filter logs: %w", err)
 	}
 
 	for _, vLog := range logs {
@@ -251,7 +253,7 @@ func (bl *BlockListener) ProcessBlock(blockNum *big.Int) error {
 		if ev, ok := bl.Registry[vLog.Address][vLog.Topics[0]]; ok {
 			event := shared.CloudEvent[Event]{
 				ID:      ksuid.New().String(),
-				Source:  head.Number.String(),
+				Source:  block.Number.String(),
 				Subject: vLog.TxHash.String(),
 				Type:    "zone.dimo.contract.event",
 				Time:    tm,
@@ -272,19 +274,21 @@ func (bl *BlockListener) ProcessBlock(blockNum *big.Int) error {
 
 			err := bl.ABIs[vLog.Address].UnpackIntoMap(event.Data.Arguments, ev.Name, vLog.Data)
 			if err != nil {
-				bl.Logger.Info().Str(bl.EventStreamTopic, ev.Name).Str("blockNumber", head.Number.String()).Str("contract", vLog.Address.String()).Str("event", vLog.TxHash.String()).Msg("unable to parse non-indexed arguments")
+				bl.Logger.Info().Str(bl.EventStreamTopic, ev.Name).Str("blockNumber", block.Number.String()).Str("contract", vLog.Address.String()).Str("event", vLog.TxHash.String()).Msg("unable to parse non-indexed arguments")
 			}
 
 			err = abi.ParseTopicsIntoMap(event.Data.Arguments, indexed, vLog.Topics[1:])
 			if err != nil {
-				bl.Logger.Info().Str(bl.EventStreamTopic, ev.Name).Str("blockNumber", head.Number.String()).Str("contract", vLog.Address.String()).Str("event", vLog.TxHash.String()).Msg("unable to parse indexed arguments")
+				bl.Logger.Info().Str(bl.EventStreamTopic, ev.Name).Str("blockNumber", block.Number.String()).Str("contract", vLog.Address.String()).Str("event", vLog.TxHash.String()).Msg("unable to parse indexed arguments")
 			}
+
+			bl.Logger.Info().Interface("arguments", event.Data.Arguments).Msg("Emitting event.")
 
 			eBytes, _ := json.Marshal(event)
 			message := &sarama.ProducerMessage{Topic: bl.EventStreamTopic, Key: sarama.StringEncoder(ksuid.New().String()), Value: sarama.ByteEncoder(eBytes)}
 			_, _, err = bl.Producer.SendMessage(message)
 			if err != nil {
-				bl.Logger.Info().Str(bl.EventStreamTopic, ev.Name).Str("blockNumber", head.Number.String()).Str("contract", vLog.Address.String()).Str("event", vLog.TxHash.String()).Msgf("error sending event to stream: %v", err)
+				bl.Logger.Info().Str(bl.EventStreamTopic, ev.Name).Str("blockNumber", block.Number.String()).Str("contract", vLog.Address.String()).Str("event", vLog.TxHash.String()).Msgf("error sending event to stream: %v", err)
 				metrics.KafkaEventMessageFailedToSend.Inc()
 			}
 
@@ -294,29 +298,11 @@ func (bl *BlockListener) ProcessBlock(blockNum *big.Int) error {
 		}
 	}
 
-	event := shared.CloudEvent[Event]{
-		ID:      ksuid.New().String(),
-		Source:  head.Number.String(),
-		Subject: head.Hash().String(),
-		Type:    "zone.dimo.blockchain.block.processed",
-		Time:    tm,
-		Data: Event{
-			BlockCompleted: true,
-		}}
-
-	eBytes, _ := json.Marshal(event)
-	message := &sarama.ProducerMessage{Topic: bl.EventStreamTopic, Key: sarama.StringEncoder(ksuid.New().String()), Value: sarama.ByteEncoder(eBytes)}
-	_, _, err = bl.Producer.SendMessage(message)
-	if err != nil {
-		bl.Logger.Info().Str("Block", head.Number.String()).Msgf("error sending block completion confirmation: %v", err)
-		return err
-	}
-
-	err = bl.RecordBlock(head)
-	if err != nil {
-		metrics.ProcessedBlockNumberStoreFailed.Inc()
-		return err
-	}
+	// err = bl.RecordBlock(block)
+	// if err != nil {
+	// 	metrics.ProcessedBlockNumberStoreFailed.Inc()
+	// 	return err
+	// }
 
 	metrics.ProcessedBlockNumberStored.Inc()
 	metrics.BlocksProcessed.Inc()
