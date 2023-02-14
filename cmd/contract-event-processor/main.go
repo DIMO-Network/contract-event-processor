@@ -5,9 +5,10 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"math/big"
 	"os"
-	"sync"
+	"os/signal"
+	"sync/atomic"
+	"syscall"
 
 	"github.com/DIMO-Network/contract-event-processor/internal/config"
 	"github.com/DIMO-Network/contract-event-processor/internal/services"
@@ -32,13 +33,7 @@ func main() {
 	}
 
 	limit := flag.Int("limit", -1, "limit number of block iterations during development")
-	head := flag.Int("head", -1, "will start processing from next block")
 	flag.Parse()
-
-	var blockNum *big.Int
-	if *head > 0 {
-		blockNum = big.NewInt(int64(*head))
-	}
 
 	if len(os.Args) > 1 {
 		switch subCommand := os.Args[1]; subCommand {
@@ -68,7 +63,9 @@ func main() {
 		log.Fatal(err)
 	}
 
-	var wg sync.WaitGroup
+	var shutdownSignal uint64
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
 	for _, chain := range settings.Chains {
 		listener, err := services.NewBlockListener(settings, logger, producer, fmt.Sprintf("config-%s.yaml", settings.Environment), chain)
@@ -81,11 +78,15 @@ func main() {
 			listener.DevTest = true
 		}
 
-		wg.Add(1)
-		go listener.ChainIndexer(blockNum, wg)
+		go listener.ChainIndexer(listener.StartBlock, &shutdownSignal)
 	}
 
-	wg.Wait()
+	select {
+	case sig := <-sigChan:
+		logger.Info().Msgf("Received signal, terminating: %s", sig)
+		atomic.AddUint64(&shutdownSignal, 1)
+
+	}
 
 	// TODO(elffjs): Log this.
 	_ = monApp.Shutdown()

@@ -9,9 +9,7 @@ import (
 	"log"
 	"math/big"
 	"os"
-	"os/signal"
-	"sync"
-	"syscall"
+	"sync/atomic"
 	"time"
 
 	"github.com/DIMO-Network/contract-event-processor/internal/config"
@@ -175,7 +173,7 @@ func (bl *BlockListener) CompileRegistryMap(cd []contractDetails) {
 	}
 }
 
-func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int, sigChan chan os.Signal) {
+func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int, signal *uint64) {
 	tick := time.NewTicker(2 * time.Second)
 	defer tick.Stop()
 
@@ -187,12 +185,17 @@ func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int, sigCh
 	for {
 		select {
 		case <-tick.C:
+			if atomic.LoadUint64(signal) > 0 {
+				bl.Logger.Info().Msgf("Closing %v channel", bl.Chain)
+				close(c)
+				return
+			}
+
 			head, err := bl.Client.HeaderByNumber(context.Background(), nil)
 			if err != nil {
 				bl.Logger.Err(err).Msg("error head of blockchain")
 			}
 			confirmedHead := new(big.Int).Sub(head.Number, bl.Confirmations)
-			fmt.Printf("\tHead: %v\t Confirmed Head: %v", head.Number, confirmedHead)
 			if latestBlockAdded == nil {
 				metrics.BlocksInQueue.Set(1)
 				c <- confirmedHead
@@ -204,12 +207,7 @@ func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int, sigCh
 				metrics.BlocksInQueue.Set(float64(new(big.Int).Sub(confirmedHead, latestBlockAdded).Int64()))
 				c <- new(big.Int).Add(latestBlockAdded, big.NewInt(1))
 				latestBlockAdded = new(big.Int).Add(latestBlockAdded, big.NewInt(1))
-				fmt.Printf("\tLatestBlockAdded: %v", latestBlockAdded.Int64())
 			}
-		case sig := <-sigChan:
-			bl.Logger.Info().Msgf("Received signal, terminating: %s", sig)
-			close(c)
-			return
 		}
 	}
 }
@@ -270,15 +268,11 @@ func (bl *BlockListener) GetFilteredBlockLogs(bHash common.Hash, contracts []com
 	return logs, err
 }
 
-func (bl *BlockListener) ChainIndexer(blockNum *big.Int, wg sync.WaitGroup) {
-	defer wg.Done()
+func (bl *BlockListener) ChainIndexer(blockNum *big.Int, signal *uint64) {
 	bl.Logger.Info().Msg("chain indexer starting")
 	blockNumChannel := make(chan *big.Int)
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-
-	go bl.PollNewBlocks(blockNum, blockNumChannel, sigChan)
+	go bl.PollNewBlocks(blockNum, blockNumChannel, signal)
 
 	for block := range blockNumChannel {
 		if bl.Limit < 1 && bl.DevTest {
