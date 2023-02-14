@@ -81,7 +81,6 @@ require (
 	github.com/tklauser/go-sysconf v0.3.5 // indirect
 	github.com/tklauser/numcpus v0.2.2 // indirect
 	golang.org/x/crypto v0.0.0-20220826181053-bd7e27e6170d // indirect
-	golang.org/x/exp v0.0.0-20230118134722-a68e582fa157
 	golang.org/x/sys v0.1.0 // indirect
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 )
