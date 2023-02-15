@@ -9,7 +9,7 @@ ALTER TABLE blocks
     ADD chain_id bigint;
 
 UPDATE blocks 
-SET chain_id = -1
+SET chain_id = 137
 WHERE chain_id IS NULL;
 
 ALTER TABLE blocks
