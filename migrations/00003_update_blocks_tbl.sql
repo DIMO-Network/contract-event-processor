@@ -21,8 +21,11 @@ ALTER TABLE blocks
 ALTER TABLE blocks
     ALTER COLUMN number SET NOT NULL;
 
+DELETE FROM contract_event_processor.blocks WHERE hash NOT IN
+(SELECT hash FROM contract_event_processor.blocks ORDER BY number LIMIT 1);
+
 ALTER TABLE blocks
-    ADD PRIMARY KEY (chain_id);
+    ADD CONSTRAINT blocks_chain_id_pkey PRIMARY KEY (chain_id);
     
 -- +goose StatementEnd
 
