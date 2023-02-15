@@ -1,17 +1,19 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"log"
+	"math/big"
 	"os"
 	"os/signal"
-	"sync/atomic"
 	"syscall"
 
 	"github.com/DIMO-Network/contract-event-processor/internal/config"
 	"github.com/DIMO-Network/contract-event-processor/internal/services"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/DIMO-Network/shared"
 	"github.com/Shopify/sarama"
@@ -22,15 +24,18 @@ import (
 )
 
 func main() {
-	logger := zerolog.New(os.Stdout).With().Timestamp().Str("app", "event-stream-processor").Logger()
+	logger := zerolog.New(os.Stdout).With().Timestamp().Str("app", "contract-stream-processor").Logger()
 	settings, err := shared.LoadConfig[config.Settings]("settings.yaml")
 	if err != nil {
-		logger.Fatal().Err(err)
+		logger.Fatal().Err(err).Msg("couldn't load settings")
 	}
 
 	if len(settings.Chains) < 1 {
 		logger.Fatal().Err(errors.New("at least one valid chain ID must be passed"))
 	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	var group errgroup.Group
 
 	limit := flag.Int("limit", -1, "limit number of block iterations during development")
 	flag.Parse()
@@ -50,7 +55,7 @@ func main() {
 		}
 	}
 
-	monApp := serveMonitoring(settings.MonitoringPort, &logger)
+	group.Go(func() error { return serveMonitoring(ctx, settings.MonitoringPort, &logger) })
 
 	kafkaClient, err := services.StartKafkaStream(settings)
 	if err != nil {
@@ -63,10 +68,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	var shutdownSignal uint64
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-
 	for _, chain := range settings.Chains {
 		listener, err := services.NewBlockListener(settings, logger, producer, fmt.Sprintf("config-%s.yaml", settings.Environment), chain)
 		if err != nil {
@@ -78,21 +79,20 @@ func main() {
 			listener.DevTest = true
 		}
 
-		go listener.ChainIndexer(listener.StartBlock, &shutdownSignal)
+		chainChan := make(chan *big.Int)
+		group.Go(func() error { return listener.PollNewBlocks(ctx, listener.StartBlock, chainChan) })
+		group.Go(func() error { return listener.ProcessBlocks(ctx, chainChan) })
 	}
 
-	select {
-	case sig := <-sigChan:
-		logger.Info().Msgf("Received signal, terminating: %s", sig)
-		atomic.AddUint64(&shutdownSignal, 1)
+	sc := make(chan os.Signal, 1)
+	signal.Notify(sc, os.Interrupt, syscall.SIGTERM)
+	<-sc
+	cancel()
+	_ = group.Wait()
 
-	}
-
-	// TODO(elffjs): Log this.
-	_ = monApp.Shutdown()
 }
 
-func serveMonitoring(port string, logger *zerolog.Logger) *fiber.App {
+func serveMonitoring(ctx context.Context, port string, logger *zerolog.Logger) error {
 	monApp := fiber.New(fiber.Config{DisableStartupMessage: true})
 
 	// Health check.
@@ -106,6 +106,7 @@ func serveMonitoring(port string, logger *zerolog.Logger) *fiber.App {
 	}()
 
 	logger.Info().Str("port", port).Msg("Started monitoring web server.")
+	<-ctx.Done()
 
-	return monApp
+	return monApp.Shutdown()
 }

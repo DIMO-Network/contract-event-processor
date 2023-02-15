@@ -9,7 +9,6 @@ import (
 	"log"
 	"math/big"
 	"os"
-	"sync/atomic"
 	"time"
 
 	"github.com/DIMO-Network/contract-event-processor/internal/config"
@@ -21,6 +20,7 @@ import (
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -86,8 +86,8 @@ type Event struct {
 }
 
 type Block struct {
-	Hash   common.Hash `json:"hash,omitempty"`
 	Number *big.Int    `json:"number,omitempty"`
+	Hash   common.Hash `json:"hash,omitempty"`
 	Time   time.Time   `json:"time,omitempty"`
 }
 
@@ -173,7 +173,7 @@ func (bl *BlockListener) CompileRegistryMap(cd []contractDetails) {
 	}
 }
 
-func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int, signal *uint64) {
+func (bl *BlockListener) PollNewBlocks(ctx context.Context, blockNum *big.Int, c chan<- *big.Int) error {
 	tick := time.NewTicker(2 * time.Second)
 	defer tick.Stop()
 
@@ -185,17 +185,11 @@ func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int, signa
 	for {
 		select {
 		case <-tick.C:
-			if atomic.LoadUint64(signal) > 0 {
-				bl.Logger.Info().Str("chain", bl.Chain).Msg("Closing channel")
-				close(c)
-				return
-			}
-
-			head, err := bl.Client.HeaderByNumber(context.Background(), nil)
+			head, err := bl.Client.BlockNumber(context.Background())
 			if err != nil {
 				bl.Logger.Err(err).Str("chain", bl.Chain).Msg("error fetching head")
 			}
-			confirmedHead := new(big.Int).Sub(head.Number, bl.Confirmations)
+			confirmedHead := new(big.Int).Sub(big.NewInt(int64(head)), bl.Confirmations)
 			if latestBlockAdded == nil {
 				metrics.BlocksInQueue.Set(1)
 				c <- confirmedHead
@@ -205,10 +199,20 @@ func (bl *BlockListener) PollNewBlocks(blockNum *big.Int, c chan *big.Int, signa
 
 			for confirmedHead.Cmp(latestBlockAdded) > 0 {
 				metrics.BlocksInQueue.Set(float64(new(big.Int).Sub(confirmedHead, latestBlockAdded).Int64()))
-				c <- new(big.Int).Add(latestBlockAdded, big.NewInt(1))
-				latestBlockAdded = new(big.Int).Add(latestBlockAdded, big.NewInt(1))
+				nextBlock := new(big.Int).Add(latestBlockAdded, big.NewInt(1))
+				select {
+				case c <- nextBlock:
+					latestBlockAdded = nextBlock
+				case <-ctx.Done():
+					return nil
+				}
+
 			}
+		case <-ctx.Done():
+			bl.Logger.Info().Str("chain", bl.Chain).Msg("Closing channel")
+			return nil
 		}
+
 	}
 }
 
@@ -217,7 +221,10 @@ func (bl *BlockListener) FetchStartingBlock(blockNum *big.Int) (*big.Int, error)
 		return blockNum, nil
 	}
 
-	resp, err := models.Blocks(qm.OrderBy(models.BlockColumns.Number+" DESC")).One(context.Background(), bl.DB.DBS().Reader)
+	resp, err := models.Blocks(models.BlockWhere.ChainID.EQ(bl.ChainID.Int64()),
+		qm.OrderBy(models.BlockColumns.Number+" DESC")).
+		One(context.Background(), bl.DB.DBS().Reader)
+
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -268,25 +275,7 @@ func (bl *BlockListener) GetFilteredBlockLogs(bHash common.Hash, contracts []com
 	return logs, err
 }
 
-func (bl *BlockListener) ChainIndexer(blockNum *big.Int, signal *uint64) {
-	bl.Logger.Info().Str("chain", bl.Chain).Msg("indexer starting")
-	blockNumChannel := make(chan *big.Int)
-
-	go bl.PollNewBlocks(blockNum, blockNumChannel, signal)
-
-	for block := range blockNumChannel {
-		if bl.Limit < 1 && bl.DevTest {
-			return
-		}
-		err := bl.ProcessBlock(block)
-		if err != nil {
-			bl.Logger.Err(err).Str("chain", bl.Chain).Msg("error processing blocks")
-		}
-		bl.Limit--
-	}
-}
-
-func (bl *BlockListener) ProcessBlock(blockNum *big.Int) error {
+func (bl *BlockListener) ProcessBlock(ctx context.Context, blockNum *big.Int) error {
 	bl.Logger.Debug().Str("chain", bl.Chain).Int64("blockNumber", blockNum.Int64()).Msg("processing")
 	head, err := bl.GetBlockHead(blockNum)
 	if err != nil {
@@ -294,10 +283,10 @@ func (bl *BlockListener) ProcessBlock(blockNum *big.Int) error {
 	}
 
 	tm := time.Unix(int64(head.Time), 0)
-
-	logs, err := bl.GetFilteredBlockLogs(head.Hash(), bl.Contracts)
+	hash := head.Hash()
+	logs, err := bl.Client.FilterLogs(ctx, ethereum.FilterQuery{BlockHash: &hash, Addresses: bl.Contracts})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to filter logs: %w", err)
 	}
 
 	for _, vLog := range logs {
@@ -308,16 +297,17 @@ func (bl *BlockListener) ProcessBlock(blockNum *big.Int) error {
 		if ev, ok := bl.Registry[vLog.Address][vLog.Topics[0]]; ok {
 			event := shared.CloudEvent[Event]{
 				ID:      ksuid.New().String(),
-				Source:  fmt.Sprintf("%v/%v", bl.Chain, bl.ChainID),
-				Subject: vLog.Address.String(),
-				Type:    "zone.dimo.contract.event.v2",
+				Source:  fmt.Sprintf("chain/%d", bl.ChainID),
+				Subject: hexutil.Encode(vLog.Address.Bytes()),
+				Type:    "zone.dimo.contract.event",
 				Time:    tm,
 				Data: Event{
 					EventName: ev.Name,
 					Block: Block{
 						Number: head.Number,
 						Hash:   head.Hash(),
-						Time:   tm},
+						Time:   tm,
+					},
 					Index:           vLog.Index,
 					Contract:        vLog.Address.String(),
 					TransactionHash: vLog.TxHash.String(),
@@ -358,14 +348,10 @@ func (bl *BlockListener) ProcessBlock(blockNum *big.Int) error {
 
 	event := shared.CloudEvent[Event]{
 		ID:     ksuid.New().String(),
-		Source: fmt.Sprintf("%v/%v", bl.Chain, bl.ChainID),
-		Type:   "zone.dimo.blockchain.block.processed.v2",
+		Source: fmt.Sprintf("chain/%d", bl.ChainID),
+		Type:   "zone.dimo.contract.event",
 		Time:   tm,
 		Data: Event{
-			Block: Block{
-				Number: head.Number,
-				Hash:   head.Hash(),
-				Time:   tm},
 			BlockCompleted: true,
 		}}
 
@@ -388,4 +374,26 @@ func (bl *BlockListener) ProcessBlock(blockNum *big.Int) error {
 	metrics.BlocksInQueue.Dec()
 
 	return nil
+}
+
+func (bl *BlockListener) ProcessBlocks(ctx context.Context, ch <-chan *big.Int) error {
+	bl.Logger.Info().Msg("chain indexer starting")
+
+	for {
+		select {
+		case block := <-ch:
+			bl.Limit--
+			// Need to figure out how to retry and eventually kill the pod.
+			err := bl.ProcessBlock(ctx, block)
+			if err != nil {
+				bl.Logger.Err(err).Msg("error processing blocks")
+			}
+
+			if bl.Limit < 0 {
+				return nil
+			}
+		case <-ctx.Done():
+			return nil
+		}
+	}
 }
