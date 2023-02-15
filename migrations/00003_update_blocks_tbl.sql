@@ -23,7 +23,8 @@ ALTER TABLE blocks
 
 ALTER TABLE blocks
     ADD PRIMARY KEY (chain_id);
-
+    
+-- +goose StatementEnd
 
 -- +goose Down
 -- +goose StatementBegin
