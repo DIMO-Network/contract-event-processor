@@ -4,6 +4,6 @@ metadata:
   name: {{ include "contract-event-processor.fullname" . }}-abi-config-map
   namespace: {{ .Release.Namespace }}
   labels:
-{{ include "contract-event-processor.fullname.labels" . | indent 4 }}
+    {{- include "contract-event-processor.labels" . | nindent 4 }}
 data:
-{{ tpl (.Files.Glob "abi/**").AsConfig $ | indent 2 }}
+{{ tpl (.Files.Glob "abi/*").AsConfig $ | indent 2 }}

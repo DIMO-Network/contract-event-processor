@@ -82,7 +82,7 @@ spec:
             name: {{ include "contract-event-processor.fullname" . }}-abi-config-map
         - name: config
           configMap:
-            name: {{ include "contract-event-processorfullname" . }}-config-config-map
+            name: {{ include "contract-event-processor.fullname" . }}-config-config-map
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
