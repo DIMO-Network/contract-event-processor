@@ -27,9 +27,9 @@ config:
   chain: mumbai
   contracts:
     - address: '0x80ee7ec4493a1d7975ab900f94db25ba7c688201'
-      abi: Mumbai_OmidV2.json
+      abi: abi/Mumbai_OmidV2.json
     - address: '0x90c4d6113ec88dd4bdf12f26db2b3998fd13a144'
-      abi: VehicleId.json
+      abi: abi/VehicleId.json
 env:
   ENVIRONMENT: dev
   MONITORING_PORT: 8888

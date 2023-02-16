@@ -367,7 +367,7 @@ func (bl *BlockListener) ProcessBlocks(ctx context.Context, ch <-chan *big.Int) 
 				bl.Logger.Err(err).Msg("error processing blocks")
 			}
 
-			if bl.Limit < 0 {
+			if bl.DevTest && bl.Limit < 0 {
 				return nil
 			}
 		case <-ctx.Done():
