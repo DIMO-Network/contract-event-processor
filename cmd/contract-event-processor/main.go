@@ -1,14 +1,17 @@
 package main
 
 import (
-	"fmt"
+	"context"
+	"flag"
 	"log"
 	"math/big"
 	"os"
-	"strconv"
+	"os/signal"
+	"syscall"
 
 	"github.com/DIMO-Network/contract-event-processor/internal/config"
 	"github.com/DIMO-Network/contract-event-processor/internal/services"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/DIMO-Network/shared"
 	"github.com/Shopify/sarama"
@@ -19,13 +22,18 @@ import (
 )
 
 func main() {
-	logger := zerolog.New(os.Stdout).With().Timestamp().Str("app", "event-stream-processor").Logger()
+	logger := zerolog.New(os.Stdout).With().Timestamp().Str("app", "contract-stream-processor").Logger()
 	settings, err := shared.LoadConfig[config.Settings]("settings.yaml")
 	if err != nil {
-		logger.Fatal().Err(err)
+		logger.Fatal().Err(err).Msg("couldn't load settings")
 	}
 
-	var blockNum *big.Int
+	ctx, cancel := context.WithCancel(context.Background())
+	var group errgroup.Group
+
+	limit := flag.Int("limit", -1, "limit number of block iterations during development")
+	flag.Parse()
+
 	if len(os.Args) > 1 {
 		switch subCommand := os.Args[1]; subCommand {
 		case "migrate":
@@ -38,19 +46,10 @@ func main() {
 			}
 			migrateDatabase(logger, &settings, command)
 			return
-		case "override":
-			if len(os.Args) > 2 {
-				n, err := strconv.Atoi(os.Args[2])
-				if err != nil {
-					logger.Fatal().Err(err)
-				}
-				blockNum = big.NewInt(int64(n))
-
-			}
 		}
 	}
 
-	monApp := serveMonitoring(settings.MonitoringPort, &logger)
+	group.Go(func() error { return serveMonitoring(ctx, settings.MonitoringPort, &logger) })
 
 	kafkaClient, err := services.StartKafkaStream(settings)
 	if err != nil {
@@ -63,19 +62,29 @@ func main() {
 		log.Fatal(err)
 	}
 
-	listener, err := services.NewBlockListener(settings, logger, producer)
+	listener, err := services.NewBlockListener(settings, logger, producer, "config.yaml")
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal().Err(err).Msg("Failed creating block listener.")
 	}
 
-	listener.CompileRegistryMap(fmt.Sprintf("config-%s.yaml", settings.Environment))
-	listener.ChainIndexer(blockNum)
+	listener.Limit = *limit
+	if listener.Limit > 0 {
+		listener.DevTest = true
+	}
 
-	// TODO(elffjs): Log this.
-	_ = monApp.Shutdown()
+	chainChan := make(chan *big.Int)
+	group.Go(func() error { return listener.PollNewBlocks(ctx, listener.StartBlock, chainChan) })
+	group.Go(func() error { return listener.ProcessBlocks(ctx, chainChan) })
+
+	sc := make(chan os.Signal, 1)
+	signal.Notify(sc, os.Interrupt, syscall.SIGTERM)
+	<-sc
+	cancel()
+	_ = group.Wait()
+
 }
 
-func serveMonitoring(port string, logger *zerolog.Logger) *fiber.App {
+func serveMonitoring(ctx context.Context, port string, logger *zerolog.Logger) error {
 	monApp := fiber.New(fiber.Config{DisableStartupMessage: true})
 
 	// Health check.
@@ -89,6 +98,7 @@ func serveMonitoring(port string, logger *zerolog.Logger) *fiber.App {
 	}()
 
 	logger.Info().Str("port", port).Msg("Started monitoring web server.")
+	<-ctx.Done()
 
-	return monApp
+	return monApp.Shutdown()
 }
