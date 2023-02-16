@@ -139,7 +139,7 @@ func (bl *BlockListener) CompileRegistryMap(cd []contractDetails) {
 			log.Fatal(err)
 		}
 
-		bl.Logger.Info().Str("chain", bl.Chain).Str("address", contract.Address.String()).Str("abiFile", contract.ABI).Msg("Watching contract.")
+		bl.Logger.Info().Int64("chain", bl.ChainID).Str("address", contract.Address.String()).Str("abiFile", contract.ABI).Msg("Watching contract.")
 
 		bl.ABIs[contract.Address] = a
 		bl.Registry[contract.Address] = make(map[common.Hash]abi.Event)
@@ -156,7 +156,7 @@ func (bl *BlockListener) PollNewBlocks(ctx context.Context, blockNum *big.Int, c
 
 	latestBlockAdded, err := bl.FetchStartingBlock(blockNum)
 	if err != nil {
-		bl.Logger.Err(err).Str("chain", bl.Chain).Msg("error fetching starting block")
+		bl.Logger.Err(err).Int64("chain", bl.ChainID).Msg("error fetching starting block")
 	}
 
 	for {
@@ -164,7 +164,7 @@ func (bl *BlockListener) PollNewBlocks(ctx context.Context, blockNum *big.Int, c
 		case <-tick.C:
 			head, err := bl.Client.BlockNumber(context.Background())
 			if err != nil {
-				bl.Logger.Err(err).Str("chain", bl.Chain).Msg("error fetching head")
+				bl.Logger.Err(err).Int64("chain", bl.ChainID).Msg("error fetching head")
 			}
 			confirmedHead := new(big.Int).Sub(big.NewInt(int64(head)), bl.Confirmations)
 			if latestBlockAdded == nil {
@@ -186,7 +186,7 @@ func (bl *BlockListener) PollNewBlocks(ctx context.Context, blockNum *big.Int, c
 
 			}
 		case <-ctx.Done():
-			bl.Logger.Info().Str("chain", bl.Chain).Msg("Closing channel")
+			bl.Logger.Info().Int64("chain", bl.ChainID).Msg("Closing channel")
 			return nil
 		}
 
@@ -254,7 +254,7 @@ func (bl *BlockListener) GetFilteredBlockLogs(bHash common.Hash, contracts []com
 }
 
 func (bl *BlockListener) ProcessBlock(ctx context.Context, blockNum *big.Int) error {
-	bl.Logger.Debug().Str("chain", bl.Chain).Int64("blockNumber", blockNum.Int64()).Msg("processing")
+	bl.Logger.Debug().Int64("chain", bl.ChainID).Int64("blockNumber", blockNum.Int64()).Msg("processing")
 	head, err := bl.GetBlockHead(blockNum)
 	if err != nil {
 		return err
@@ -269,7 +269,7 @@ func (bl *BlockListener) ProcessBlock(ctx context.Context, blockNum *big.Int) er
 
 	for _, vLog := range logs {
 		if vLog.Removed {
-			bl.Logger.Info().Str("chain", bl.Chain).Uint64("blockNumber", vLog.BlockNumber).Msg("Block removed due to chain reorganization")
+			bl.Logger.Info().Int64("chain", bl.ChainID).Uint64("blockNumber", vLog.BlockNumber).Msg("Block removed due to chain reorganization")
 		}
 
 		if ev, ok := bl.Registry[vLog.Address][vLog.Topics[0]]; ok {
@@ -302,19 +302,19 @@ func (bl *BlockListener) ProcessBlock(ctx context.Context, blockNum *big.Int) er
 
 			err := bl.ABIs[vLog.Address].UnpackIntoMap(event.Data.Arguments, ev.Name, vLog.Data)
 			if err != nil {
-				bl.Logger.Info().Str("chain", bl.Chain).Str(bl.EventStreamTopic, ev.Name).Str("blockNumber", head.Number.String()).Str("contract", vLog.Address.String()).Str("event", vLog.TxHash.String()).Msg("unable to parse non-indexed arguments")
+				bl.Logger.Info().Int64("chain", bl.ChainID).Str(bl.EventStreamTopic, ev.Name).Str("blockNumber", head.Number.String()).Str("contract", vLog.Address.String()).Str("event", vLog.TxHash.String()).Msg("unable to parse non-indexed arguments")
 			}
 
 			err = abi.ParseTopicsIntoMap(event.Data.Arguments, indexed, vLog.Topics[1:])
 			if err != nil {
-				bl.Logger.Info().Str("chain", bl.Chain).Str(bl.EventStreamTopic, ev.Name).Str("blockNumber", head.Number.String()).Str("contract", vLog.Address.String()).Str("event", vLog.TxHash.String()).Msg("unable to parse indexed arguments")
+				bl.Logger.Info().Int64("chain", bl.ChainID).Str(bl.EventStreamTopic, ev.Name).Str("blockNumber", head.Number.String()).Str("contract", vLog.Address.String()).Str("event", vLog.TxHash.String()).Msg("unable to parse indexed arguments")
 			}
 
 			eBytes, _ := json.Marshal(event)
 			message := &sarama.ProducerMessage{Topic: bl.EventStreamTopic, Key: sarama.StringEncoder(ksuid.New().String()), Value: sarama.ByteEncoder(eBytes)}
 			_, _, err = bl.Producer.SendMessage(message)
 			if err != nil {
-				bl.Logger.Info().Str("chain", bl.Chain).Str(bl.EventStreamTopic, ev.Name).Str("blockNumber", head.Number.String()).Str("contract", vLog.Address.String()).Str("event", vLog.TxHash.String()).Msgf("error sending event to stream: %v", err)
+				bl.Logger.Info().Int64("chain", bl.ChainID).Str(bl.EventStreamTopic, ev.Name).Str("blockNumber", head.Number.String()).Str("contract", vLog.Address.String()).Str("event", vLog.TxHash.String()).Msgf("error sending event to stream: %v", err)
 				metrics.KafkaEventMessageFailedToSend.Inc()
 			}
 
@@ -337,7 +337,7 @@ func (bl *BlockListener) ProcessBlock(ctx context.Context, blockNum *big.Int) er
 	message := &sarama.ProducerMessage{Topic: bl.EventStreamTopic, Key: sarama.StringEncoder(ksuid.New().String()), Value: sarama.ByteEncoder(eBytes)}
 	_, _, err = bl.Producer.SendMessage(message)
 	if err != nil {
-		bl.Logger.Info().Str("chain", bl.Chain).Str("Block", head.Number.String()).Msgf("error sending block completion confirmation: %v", err)
+		bl.Logger.Info().Int64("chain", bl.ChainID).Str("Block", head.Number.String()).Msgf("error sending block completion confirmation: %v", err)
 		return err
 	}
 
