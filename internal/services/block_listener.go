@@ -310,6 +310,8 @@ func (bl *BlockListener) ProcessBlock(ctx context.Context, blockNum *big.Int) er
 				bl.Logger.Info().Str("chain", bl.Chain).Str(bl.EventStreamTopic, ev.Name).Str("blockNumber", head.Number.String()).Str("contract", vLog.Address.String()).Str("event", vLog.TxHash.String()).Msg("unable to parse indexed arguments")
 			}
 
+			bl.Logger.Info().Str("contract", vLog.Address.Hex()).Int64("chainId", bl.ChainID).Interface("event", event.Data.Arguments).Msg("Emitting event.")
+
 			eBytes, _ := json.Marshal(event)
 			message := &sarama.ProducerMessage{Topic: bl.EventStreamTopic, Key: sarama.StringEncoder(ksuid.New().String()), Value: sarama.ByteEncoder(eBytes)}
 			_, _, err = bl.Producer.SendMessage(message)
@@ -324,14 +326,17 @@ func (bl *BlockListener) ProcessBlock(ctx context.Context, blockNum *big.Int) er
 		}
 	}
 
-	event := shared.CloudEvent[Event]{
+	event := shared.CloudEvent[Block]{
 		ID:     ksuid.New().String(),
 		Source: fmt.Sprintf("chain/%d", bl.ChainID),
-		Type:   "zone.dimo.contract.event",
+		Type:   "zone.dimo.block.complete",
 		Time:   tm,
-		Data: Event{
-			BlockCompleted: true,
-		}}
+		Data: Block{
+			Number: head.Number,
+			Hash:   head.Hash(),
+			Time:   tm,
+		},
+	}
 
 	eBytes, _ := json.Marshal(event)
 	message := &sarama.ProducerMessage{Topic: bl.EventStreamTopic, Key: sarama.StringEncoder(ksuid.New().String()), Value: sarama.ByteEncoder(eBytes)}
