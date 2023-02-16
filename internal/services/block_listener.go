@@ -36,7 +36,7 @@ import (
 type BlockListener struct {
 	Client           *ethclient.Client
 	Contracts        []common.Address
-	ChainID          *big.Int
+	ChainID          int64
 	Chain            string
 	Logger           zerolog.Logger
 	Producer         sarama.SyncProducer
@@ -50,22 +50,9 @@ type BlockListener struct {
 	DevTest          bool
 }
 
-type Config struct {
-	Contracts []struct {
-		Address    common.Address
-		StartBlock *big.Int `yaml:"startBlock"`
-		ABI        string
-		Chain      string
-		Events     []string
-	}
-	Chains []ChainDetails
-}
-
 type ChainDetails struct {
-	Chain      string   `yaml:"chain"`
-	RPCURL     string   `yaml:"rpc_url"`
-	StartBlock *big.Int `yaml:"startBlock"`
-	Contracts  []contractDetails
+	Chain     string `yaml:"chain"`
+	Contracts []contractDetails
 }
 
 type contractDetails struct {
@@ -91,33 +78,21 @@ type Block struct {
 	Time   time.Time   `json:"time,omitempty"`
 }
 
-func NewBlockListener(s config.Settings, logger zerolog.Logger, producer sarama.SyncProducer, configPath, chain string) (BlockListener, error) {
-	var conf Config
+func NewBlockListener(s config.Settings, logger zerolog.Logger, producer sarama.SyncProducer, configPath string) (*BlockListener, error) {
+	var conf ChainDetails
 	cb, err := os.ReadFile(configPath)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	err = yaml.Unmarshal(cb, &conf)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
-	var rpcURL string
-	var contractDetails []contractDetails
-	var startBlock *big.Int
-	for _, c := range conf.Chains {
-		if c.Chain != chain {
-			continue
-		}
-		rpcURL = c.RPCURL + s.APIKey
-		contractDetails = c.Contracts
-		startBlock = c.StartBlock
-	}
-
-	c, err := ethclient.Dial(rpcURL)
+	c, err := ethclient.Dial(s.BlockchainRPCURL)
 	if err != nil {
-		return BlockListener{}, err
+		return nil, err
 	}
 
 	pdb := db.NewDbConnectionFromSettings(context.TODO(), &s.DB, true)
@@ -125,7 +100,11 @@ func NewBlockListener(s config.Settings, logger zerolog.Logger, producer sarama.
 
 	chainID, err := c.ChainID(context.Background())
 	if err != nil {
-		return BlockListener{}, err
+		return nil, err
+	}
+
+	if !chainID.IsInt64() {
+		return nil, fmt.Errorf("chain id %s cannot fit in an int64", chainID)
 	}
 
 	b := BlockListener{
@@ -133,16 +112,14 @@ func NewBlockListener(s config.Settings, logger zerolog.Logger, producer sarama.
 		EventStreamTopic: s.ContractEventTopic,
 		Logger:           logger,
 		Producer:         producer,
-		Confirmations:    big.NewInt(int64(s.BlockConfirmations)),
-		StartBlock:       startBlock,
+		Confirmations:    big.NewInt(s.BlockConfirmations),
 		DB:               pdb,
-		ChainID:          chainID,
-		Chain:            chain,
+		ChainID:          chainID.Int64(),
 	}
 
-	b.CompileRegistryMap(contractDetails)
+	b.CompileRegistryMap(conf.Contracts)
 
-	return b, nil
+	return &b, nil
 }
 
 func (bl *BlockListener) CompileRegistryMap(cd []contractDetails) {
@@ -221,7 +198,8 @@ func (bl *BlockListener) FetchStartingBlock(blockNum *big.Int) (*big.Int, error)
 		return blockNum, nil
 	}
 
-	resp, err := models.Blocks(models.BlockWhere.ChainID.EQ(bl.ChainID.Int64()),
+	resp, err := models.Blocks(
+		models.BlockWhere.ChainID.EQ(bl.ChainID),
 		qm.OrderBy(models.BlockColumns.Number+" DESC")).
 		One(context.Background(), bl.DB.DBS().Reader)
 
@@ -238,7 +216,7 @@ func (bl *BlockListener) FetchStartingBlock(blockNum *big.Int) (*big.Int, error)
 // RecordBlock store block number and hash after processing
 func (bl *BlockListener) RecordBlock(head *types.Header) error {
 	processedBlock := models.Block{
-		ChainID: bl.ChainID.Int64(),
+		ChainID: bl.ChainID,
 		Number:  head.Number.Int64(),
 		Hash:    head.Hash().Bytes(),
 	}

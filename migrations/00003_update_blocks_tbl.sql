@@ -6,7 +6,7 @@ ALTER TABLE blocks
     DROP CONSTRAINT blocks_pkey;
 
 ALTER TABLE blocks
-    ADD chain_id bigint;
+    ADD COLUMN chain_id bigint;
 
 UPDATE blocks 
 SET chain_id = 137
@@ -22,10 +22,10 @@ ALTER TABLE blocks
     ALTER COLUMN number SET NOT NULL;
 
 DELETE FROM contract_event_processor.blocks WHERE hash NOT IN
-(SELECT hash FROM contract_event_processor.blocks ORDER BY number LIMIT 1);
+(SELECT hash FROM contract_event_processor.blocks ORDER BY number DESC LIMIT 1);
 
 ALTER TABLE blocks
-    ADD CONSTRAINT blocks_chain_id_pkey PRIMARY KEY (chain_id);
+    ADD CONSTRAINT blocks_pkey PRIMARY KEY (chain_id);
     
 -- +goose StatementEnd
 
@@ -34,4 +34,5 @@ ALTER TABLE blocks
 SET search_path TO contract_event_processor, public;
 
 DROP TABLE IF EXISTS blocks;
+-- TODO(elffjs): Write a proper down migration.
 -- +goose StatementEnd

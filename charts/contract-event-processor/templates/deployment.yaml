@@ -70,6 +70,19 @@ spec:
               port: mon-http
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: abi
+              mountPath: /abi
+            - name: config
+              mountPath: /config.yaml
+              subPath: config.yaml
+      volumes:
+        - name: abi
+          configMap:
+            name: {{ include "contract-event-processor.fullname" . }}-abi-config-map
+        - name: config
+          configMap:
+            name: {{ include "contract-event-processorfullname" . }}-config-config-map
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

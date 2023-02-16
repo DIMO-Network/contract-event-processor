@@ -2,9 +2,7 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
-	"fmt"
 	"log"
 	"math/big"
 	"os"
@@ -28,10 +26,6 @@ func main() {
 	settings, err := shared.LoadConfig[config.Settings]("settings.yaml")
 	if err != nil {
 		logger.Fatal().Err(err).Msg("couldn't load settings")
-	}
-
-	if len(settings.Chains) < 1 {
-		logger.Fatal().Err(errors.New("at least one valid chain ID must be passed"))
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -68,21 +62,19 @@ func main() {
 		log.Fatal(err)
 	}
 
-	for _, chain := range settings.Chains {
-		listener, err := services.NewBlockListener(settings, logger, producer, fmt.Sprintf("config-%s.yaml", settings.Environment), chain)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		listener.Limit = *limit
-		if listener.Limit > 0 {
-			listener.DevTest = true
-		}
-
-		chainChan := make(chan *big.Int)
-		group.Go(func() error { return listener.PollNewBlocks(ctx, listener.StartBlock, chainChan) })
-		group.Go(func() error { return listener.ProcessBlocks(ctx, chainChan) })
+	listener, err := services.NewBlockListener(settings, logger, producer, "config.yaml")
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Failed creating block listener.")
 	}
+
+	listener.Limit = *limit
+	if listener.Limit > 0 {
+		listener.DevTest = true
+	}
+
+	chainChan := make(chan *big.Int)
+	group.Go(func() error { return listener.PollNewBlocks(ctx, listener.StartBlock, chainChan) })
+	group.Go(func() error { return listener.ProcessBlocks(ctx, chainChan) })
 
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, os.Interrupt, syscall.SIGTERM)
