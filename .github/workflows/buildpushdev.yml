@@ -40,3 +40,12 @@ jobs:
           value: ${{ steps.slug.outputs.sha7 }}
           branch: main
           message: 'Update Image Version to ${{ steps.slug.outputs.sha7 }}'
+
+      - name: Update Image Version in the worker HelmChart values-goerli.yaml
+        uses: fjogeleit/yaml-update-action@master
+        with:
+          valueFile: 'charts/contract-event-processor/values-goerli.yaml'
+          propertyPath: 'image.tag'
+          value: ${{ steps.slug.outputs.sha7 }}
+          branch: main
+          message: 'Update Image Version to ${{ steps.slug.outputs.sha7 }}'
