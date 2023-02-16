@@ -22,7 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	_ "github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus"
@@ -236,7 +236,7 @@ func (bl *BlockListener) FetchStartingBlock(blockNum *big.Int) (*big.Int, error)
 }
 
 // RecordBlock store block number and hash after processing
-func (bl *BlockListener) RecordBlock(head *ethtypes.Header) error {
+func (bl *BlockListener) RecordBlock(head *types.Header) error {
 	processedBlock := models.Block{
 		ChainID: bl.ChainID.Int64(),
 		Number:  head.Number.Int64(),
@@ -245,7 +245,7 @@ func (bl *BlockListener) RecordBlock(head *ethtypes.Header) error {
 	return processedBlock.Upsert(context.Background(), bl.DB.DBS().Writer, true, []string{"chain_id"}, boil.Whitelist("number", "hash", "processed_at"), boil.Infer())
 }
 
-func (bl *BlockListener) GetBlockHead(blockNum *big.Int) (*ethtypes.Header, error) {
+func (bl *BlockListener) GetBlockHead(blockNum *big.Int) (*types.Header, error) {
 	timer := prometheus.NewTimer(metrics.AlchemyHeadPollResponseTime)
 	head, err := bl.Client.HeaderByNumber(context.Background(), blockNum)
 	if err != nil {
@@ -258,7 +258,7 @@ func (bl *BlockListener) GetBlockHead(blockNum *big.Int) (*ethtypes.Header, erro
 	return head, err
 }
 
-func (bl *BlockListener) GetFilteredBlockLogs(bHash common.Hash, contracts []common.Address) ([]ethtypes.Log, error) {
+func (bl *BlockListener) GetFilteredBlockLogs(bHash common.Hash, contracts []common.Address) ([]types.Log, error) {
 	timer := prometheus.NewTimer(metrics.FilteredLogsResponseTime)
 	fil := ethereum.FilterQuery{
 		BlockHash: &bHash,
@@ -268,7 +268,7 @@ func (bl *BlockListener) GetFilteredBlockLogs(bHash common.Hash, contracts []com
 	logs, err := bl.Client.FilterLogs(context.Background(), fil)
 	if err != nil {
 		metrics.FailedFilteredLogsFetch.Inc()
-		return []ethtypes.Log{}, nil
+		return []types.Log{}, nil
 	}
 	timer.ObserveDuration()
 	metrics.SuccessfulFilteredLogsFetch.Inc()
