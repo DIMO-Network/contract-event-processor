@@ -29,7 +29,7 @@ func main() {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	var group errgroup.Group
+	group, ctx := errgroup.WithContext(ctx)
 
 	limit := flag.Int("limit", -1, "limit number of block iterations during development")
 	flag.Parse()
