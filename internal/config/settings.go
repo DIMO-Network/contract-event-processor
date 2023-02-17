@@ -17,4 +17,6 @@ type Settings struct {
 	BlockchainRPCURL string `yaml:"BLOCKCHAIN_RPC_URL"`
 
 	APIKey string `yaml:"ALCHEMY_API_KEY"`
+
+	StartingBlock int64 `yaml:"STARTING_BLOCK"`
 }
