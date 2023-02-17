@@ -107,7 +107,7 @@ func NewBlockListener(s config.Settings, logger zerolog.Logger, producer sarama.
 
 	ctrs := []common.Address{}
 	for _, x := range conf.Contracts {
-		ctrs = append(ctrs, common.HexToAddress(x.Address.Hex()))
+		ctrs = append(ctrs, x.Address)
 	}
 
 	b := BlockListener{
