@@ -30,7 +30,6 @@ import (
 	"github.com/segmentio/ksuid"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
-	"gopkg.in/yaml.v3"
 )
 
 type BlockListener struct {
@@ -51,8 +50,8 @@ type BlockListener struct {
 }
 
 type ChainDetails struct {
-	Chain     string `yaml:"chain"`
-	Contracts []contractDetails
+	Chain     string            `yaml:"chain"`
+	Contracts []contractDetails `yaml:"contracts"`
 }
 
 type contractDetails struct {
@@ -79,13 +78,8 @@ type Block struct {
 }
 
 func NewBlockListener(s config.Settings, logger zerolog.Logger, producer sarama.SyncProducer, configPath string) (*BlockListener, error) {
-	var conf ChainDetails
-	cb, err := os.ReadFile(configPath)
-	if err != nil {
-		return nil, err
-	}
 
-	err = yaml.Unmarshal(cb, &conf)
+	conf, err := shared.LoadConfig[ChainDetails](configPath)
 	if err != nil {
 		return nil, err
 	}
@@ -106,6 +100,15 @@ func NewBlockListener(s config.Settings, logger zerolog.Logger, producer sarama.
 	if !chainID.IsInt64() {
 		return nil, fmt.Errorf("chain id %s cannot fit in an int64", chainID)
 	}
+	var sb *big.Int
+	if s.StartingBlock != 0 {
+		sb = big.NewInt(s.StartingBlock)
+	}
+
+	ctrs := []common.Address{}
+	for _, x := range conf.Contracts {
+		ctrs = append(ctrs, common.HexToAddress(x.Address.Hex()))
+	}
 
 	b := BlockListener{
 		Client:           c,
@@ -115,6 +118,8 @@ func NewBlockListener(s config.Settings, logger zerolog.Logger, producer sarama.
 		Confirmations:    big.NewInt(s.BlockConfirmations),
 		DB:               pdb,
 		ChainID:          chainID.Int64(),
+		StartBlock:       sb,
+		Contracts:        ctrs,
 	}
 
 	b.CompileRegistryMap(conf.Contracts)
