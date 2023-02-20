@@ -30,6 +30,8 @@ config:
       abi: abi/Mumbai_OmidV2.json
     - address: '0x90c4d6113ec88dd4bdf12f26db2b3998fd13a144'
       abi: abi/VehicleId.json
+    - address: '0x4de1bcf2b7e851e31216fc07989caa902a604784'
+      abi: abi/DIMORegistry.json
 env:
   ENVIRONMENT: dev
   MONITORING_PORT: 8888

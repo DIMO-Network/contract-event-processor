@@ -16,6 +16,8 @@ config:
       abi: abi/Polygon_Dimo.json
     - address: '0xba5738a18d83d41847dffbdc6101d37c69c9b0cf'
       abi: abi/VehicleId.json
+    - address: '0xfa8bec73cebb9d88ff88a2f75e7d7312f2fd39ec'
+      abi: abi/DIMORegistry.json
 ingress:
   enabled: false
 resources:
