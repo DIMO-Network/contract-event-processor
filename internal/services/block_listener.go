@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"math/big"
 	"os"
 	"time"
@@ -40,7 +39,6 @@ type BlockListener struct {
 	Logger           zerolog.Logger
 	Producer         sarama.SyncProducer
 	EventStreamTopic string
-	Registry         map[common.Address]map[common.Hash]abi.Event
 	Confirmations    *big.Int
 	StartBlock       *big.Int
 	DB               db.Store
@@ -57,18 +55,18 @@ type ChainDetails struct {
 type contractDetails struct {
 	Address common.Address `yaml:"address"`
 	ABI     string         `yaml:"abi"`
-	Events  []string       `yaml:"events"`
 }
 
 type Event struct {
+	ChainID         int64          `json:"chainId"`
 	EventName       string         `json:"eventName,omitempty"`
 	Block           Block          `json:"block,omitempty"`
 	Index           uint           `json:"index,omitempty"`
-	Contract        string         `json:"contract,omitempty"`
-	TransactionHash string         `json:"transactionHash,omitempty"`
-	EventSignature  string         `json:"eventSignature,omitempty"`
+	Contract        common.Address `json:"contract,omitempty"`
+	TransactionHash common.Hash    `json:"transactionHash,omitempty"`
+	EventSignature  common.Hash    `json:"eventSignature,omitempty"`
 	Arguments       map[string]any `json:"arguments,omitempty"`
-	BlockCompleted  bool
+	BlockCompleted  bool           `json:"blockCompleted"`
 }
 
 type Block struct {
@@ -78,7 +76,6 @@ type Block struct {
 }
 
 func NewBlockListener(s config.Settings, logger zerolog.Logger, producer sarama.SyncProducer, configPath string) (*BlockListener, error) {
-
 	conf, err := shared.LoadConfig[ChainDetails](configPath)
 	if err != nil {
 		return nil, err
@@ -128,30 +125,23 @@ func NewBlockListener(s config.Settings, logger zerolog.Logger, producer sarama.
 }
 
 func (bl *BlockListener) CompileRegistryMap(cd []contractDetails) {
-
-	bl.Registry = make(map[common.Address]map[common.Hash]abi.Event)
 	bl.ABIs = make(map[common.Address]abi.ABI)
 	for _, contract := range cd {
-		bl.Contracts = append(bl.Contracts, contract.Address)
-		f, err := os.Open(contract.ABI)
-		if err != nil {
-			log.Fatal(err)
-		}
+		func() {
+			bl.Contracts = append(bl.Contracts, contract.Address)
+			f, err := os.Open(contract.ABI)
+			if err != nil {
+				bl.Logger.Fatal().Err(err).Msgf("Couldn't open ABI %s.", contract.ABI)
+			}
+			defer f.Close()
 
-		a, err := abi.JSON(f)
-		f.Close()
-		if err != nil {
-			log.Fatal(err)
-		}
+			bl.ABIs[contract.Address], err = abi.JSON(f)
+			if err != nil {
+				bl.Logger.Fatal().Err(err).Msgf("Couldn't parse ABI %s.", contract.ABI)
+			}
 
-		bl.Logger.Info().Int64("chain", bl.ChainID).Str("address", contract.Address.String()).Str("abiFile", contract.ABI).Msg("Watching contract.")
-
-		bl.ABIs[contract.Address] = a
-		bl.Registry[contract.Address] = make(map[common.Hash]abi.Event)
-
-		for _, event := range a.Events {
-			bl.Registry[contract.Address][event.ID] = event
-		}
+			bl.Logger.Info().Int64("chain", bl.ChainID).Str("address", contract.Address.String()).Str("abiFile", contract.ABI).Msg("Watching contract.")
+		}()
 	}
 }
 
@@ -259,7 +249,9 @@ func (bl *BlockListener) GetFilteredBlockLogs(bHash common.Hash, contracts []com
 }
 
 func (bl *BlockListener) ProcessBlock(ctx context.Context, blockNum *big.Int) error {
-	bl.Logger.Debug().Int64("chain", bl.ChainID).Int64("blockNumber", blockNum.Int64()).Msg("processing")
+	logger := bl.Logger.With().Int64("chainId", bl.ChainID).Int64("blockNumber", blockNum.Int64()).Logger()
+
+	logger.Info().Msg("Processing block.")
 	head, err := bl.GetBlockHead(blockNum)
 	if err != nil {
 		return err
@@ -267,68 +259,93 @@ func (bl *BlockListener) ProcessBlock(ctx context.Context, blockNum *big.Int) er
 
 	tm := time.Unix(int64(head.Time), 0)
 	hash := head.Hash()
+
 	logs, err := bl.Client.FilterLogs(ctx, ethereum.FilterQuery{BlockHash: &hash, Addresses: bl.Contracts})
 	if err != nil {
-		return fmt.Errorf("failed to filter logs: %w", err)
+		return fmt.Errorf("failed retrieving logs: %w", err)
 	}
 
 	for _, vLog := range logs {
+		logger := logger.With().Uint("index", vLog.Index).Str("contract", vLog.Address.Hex()).Logger()
+
 		if vLog.Removed {
-			bl.Logger.Info().Int64("chain", bl.ChainID).Uint64("blockNumber", vLog.BlockNumber).Msg("Block removed due to chain reorganization")
+			logger.Warn().Msg("Log removed after reorganization. This should never happen.")
 		}
 
-		if ev, ok := bl.Registry[vLog.Address][vLog.Topics[0]]; ok {
-			event := shared.CloudEvent[Event]{
-				ID:      ksuid.New().String(),
-				Source:  fmt.Sprintf("chain/%d", bl.ChainID),
-				Subject: hexutil.Encode(vLog.Address.Bytes()),
-				Type:    "zone.dimo.contract.event",
-				Time:    tm,
-				Data: Event{
-					EventName: ev.Name,
-					Block: Block{
-						Number: head.Number,
-						Hash:   head.Hash(),
-						Time:   tm,
-					},
-					Index:           vLog.Index,
-					Contract:        vLog.Address.String(),
-					TransactionHash: vLog.TxHash.String(),
-					EventSignature:  vLog.Topics[0].String(),
-					Arguments:       make(map[string]any),
-				}}
-
-			var indexed abi.Arguments
-			for _, arg := range ev.Inputs {
-				if arg.Indexed {
-					indexed = append(indexed, arg)
-				}
-			}
-
-			err := bl.ABIs[vLog.Address].UnpackIntoMap(event.Data.Arguments, ev.Name, vLog.Data)
-			if err != nil {
-				bl.Logger.Info().Int64("chain", bl.ChainID).Str(bl.EventStreamTopic, ev.Name).Str("blockNumber", head.Number.String()).Str("contract", vLog.Address.String()).Str("event", vLog.TxHash.String()).Msg("unable to parse non-indexed arguments")
-			}
-
-			err = abi.ParseTopicsIntoMap(event.Data.Arguments, indexed, vLog.Topics[1:])
-			if err != nil {
-				bl.Logger.Info().Int64("chain", bl.ChainID).Str(bl.EventStreamTopic, ev.Name).Str("blockNumber", head.Number.String()).Str("contract", vLog.Address.String()).Str("event", vLog.TxHash.String()).Msg("unable to parse indexed arguments")
-			}
-
-			bl.Logger.Info().Str("contract", vLog.Address.Hex()).Int64("chainId", bl.ChainID).Interface("event", event.Data.Arguments).Msg("Emitting event.")
-
-			eBytes, _ := json.Marshal(event)
-			message := &sarama.ProducerMessage{Topic: bl.EventStreamTopic, Key: sarama.StringEncoder(ksuid.New().String()), Value: sarama.ByteEncoder(eBytes)}
-			_, _, err = bl.Producer.SendMessage(message)
-			if err != nil {
-				bl.Logger.Info().Int64("chain", bl.ChainID).Str(bl.EventStreamTopic, ev.Name).Str("blockNumber", head.Number.String()).Str("contract", vLog.Address.String()).Str("event", vLog.TxHash.String()).Msgf("error sending event to stream: %v", err)
-				metrics.KafkaEventMessageFailedToSend.Inc()
-			}
-
-			metrics.EventsEmitted.Inc()
-			metrics.KafkaEventMessageSent.Inc()
-
+		contractABI, ok := bl.ABIs[vLog.Address]
+		if !ok {
+			bl.Logger.Warn().Msgf("Unrecognized contract %s.", vLog.Address)
+			continue
 		}
+
+		eventDef, err := contractABI.EventByID(vLog.Topics[0])
+		if err != nil {
+			bl.Logger.Warn().Err(err).Msgf("Unrecognized event signature %s.", vLog.Topics[0])
+			continue
+		}
+
+		var indexed abi.Arguments
+		for _, arg := range eventDef.Inputs {
+			if arg.Indexed {
+				indexed = append(indexed, arg)
+			}
+		}
+
+		args := map[string]any{}
+
+		// Parse the non-indexed fields.
+		if err := bl.ABIs[vLog.Address].UnpackIntoMap(args, eventDef.Name, vLog.Data); err != nil {
+			bl.Logger.Err(err).Msg("Failed to parse log data.")
+			continue
+		}
+
+		// Parse the indexed fields.
+		err = abi.ParseTopicsIntoMap(args, indexed, vLog.Topics[1:])
+		if err != nil {
+			bl.Logger.Err(err).Msg("Failed to parse topics.")
+			continue
+		}
+
+		logger.Info().Msg("Emitting event.")
+
+		event := shared.CloudEvent[Event]{
+			ID:          ksuid.New().String(),
+			Source:      fmt.Sprintf("chain/%d", bl.ChainID),
+			Subject:     hexutil.Encode(vLog.Address.Bytes()),
+			Type:        "zone.dimo.contract.event",
+			Time:        tm,
+			SpecVersion: "1.0",
+			Data: Event{
+				EventName: eventDef.Name,
+				Block: Block{
+					Number: head.Number,
+					Hash:   head.Hash(),
+					Time:   tm,
+				},
+				Index:           vLog.Index,
+				Contract:        vLog.Address,
+				TransactionHash: vLog.TxHash,
+				EventSignature:  vLog.Topics[0],
+				Arguments:       args,
+				ChainID:         bl.ChainID,
+			}}
+
+		eBytes, err := json.Marshal(event)
+		if err != nil {
+			logger.Err(err).Msg("Failed to marshal event.")
+			continue
+		}
+
+		message := &sarama.ProducerMessage{Topic: bl.EventStreamTopic, Key: sarama.StringEncoder(ksuid.New().String()), Value: sarama.ByteEncoder(eBytes)}
+		_, _, err = bl.Producer.SendMessage(message)
+		if err != nil {
+			logger.Err(err).Msg("Failed to emit event.")
+			metrics.KafkaEventMessageFailedToSend.Inc()
+			continue
+		}
+
+		metrics.EventsEmitted.Inc()
+		metrics.KafkaEventMessageSent.Inc()
 	}
 
 	event := shared.CloudEvent[Block]{
