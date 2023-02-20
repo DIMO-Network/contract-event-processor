@@ -2,7 +2,7 @@ replicaCount: 1
 image:
   repository: dimozone/contract-event-processor
   pullPolicy: IfNotPresent
-  tag: 0.1.3
+  tag: 0.2.0
 cronJob:
   enabled: false
 env:
