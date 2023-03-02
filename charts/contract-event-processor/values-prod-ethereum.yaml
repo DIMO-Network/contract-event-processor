@@ -35,3 +35,4 @@ podDisruptionBudget:
   minAvailable: 0
 kafka:
   clusterName: kafka-prod-dimo-kafka
+  topics: []
