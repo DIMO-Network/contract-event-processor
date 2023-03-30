@@ -18,17 +18,17 @@ The default number of block confirmations used for this service is 5. This numbe
 1. `docker compose up -d`
 2. Create a table to track which blocks have already been processed.
 
-   `go run ./cmd migrate`
+   `go run ./cmd/contract-event-processor migrate`
 
 3. The following will either resume indexing where the process left off during the last run. Or, if the table in the above step is empty, start with the most recently confirmed block (determined by current head minus 5).
 
-   `go run ./cmd`
+   `go run ./cmd/contract-event-processor`
 
 4. To start processing from a specific block, run the following where BLOCKNUM is the block number you would like to start from:
 
    `go run ./cmd override BLOCKNUM`
 
-   example: `go run ./cmd override 37948118`
+   example: `go run ./cmd/contract-event-processor override 37948118`
 
 ## Events
 
