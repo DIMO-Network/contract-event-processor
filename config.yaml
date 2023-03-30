@@ -2,3 +2,5 @@ chain: mumbai
 contracts:
   - address: '0x4de1bcf2b7e851e31216fc07989caa902a604784'
     abi: abi/identity.json
+  - address: '0xcf9af64522162da85164a714c23a7705e6e466b3'
+    abi: abi/AftermarketDeviceId.json
