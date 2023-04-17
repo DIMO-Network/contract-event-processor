@@ -18,6 +18,8 @@ config:
       abi: abi/VehicleId.json
     - address: '0xfa8bec73cebb9d88ff88a2f75e7d7312f2fd39ec'
       abi: abi/DIMORegistry.json
+    - address: '0x9c94c395cbcbde662235e0a9d3bb87ad708561ba'
+      abi: abi/AftermarketDeviceId.json
 ingress:
   enabled: false
 resources:
