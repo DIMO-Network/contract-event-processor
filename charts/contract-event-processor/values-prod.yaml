@@ -20,6 +20,10 @@ config:
       abi: abi/DIMORegistry.json
     - address: '0x9c94c395cbcbde662235e0a9d3bb87ad708561ba'
       abi: abi/AftermarketDeviceId.json
+    - address: '0xe9f4dfe02f895dc17e2e146e578873c9095ba293'
+      abi: abi/DcnRegistry.json
+    - address: '0x60627326f55054ea448e0a7bc750785bd65ef757'
+      abi: abi/ResolverRegistry.json
 ingress:
   enabled: false
 resources:
