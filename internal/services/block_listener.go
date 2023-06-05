@@ -258,9 +258,12 @@ func (bl *BlockListener) ProcessBlock(ctx context.Context, blockNum *big.Int) er
 	}
 
 	tm := time.Unix(int64(head.Time), 0)
-	hash := head.Hash()
 
-	logs, err := bl.Client.FilterLogs(ctx, ethereum.FilterQuery{BlockHash: &hash, Addresses: bl.Contracts})
+	logs, err := bl.Client.FilterLogs(ctx, ethereum.FilterQuery{
+		FromBlock: blockNum,
+		ToBlock:   blockNum,
+		Addresses: bl.Contracts,
+	})
 	if err != nil {
 		return fmt.Errorf("failed retrieving logs: %w", err)
 	}
