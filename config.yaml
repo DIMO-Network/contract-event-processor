@@ -1,6 +1,4 @@
-chain: mumbai
+chain: hardhat
 contracts:
-  - address: '0x4de1bcf2b7e851e31216fc07989caa902a604784'
-    abi: abi/identity.json
-  - address: '0xcf9af64522162da85164a714c23a7705e6e466b3'
-    abi: abi/AftermarketDeviceId.json
+  - address: '0x5FbDB2315678afecb367f032d93F642f64180aa3'
+    abi: charts/contract-event-processor/abi/DIMORegistry.json
