@@ -22,7 +22,7 @@ import (
 )
 
 func main() {
-	logger := zerolog.New(os.Stdout).With().Timestamp().Str("app", "contract-stream-processor").Logger()
+	logger := zerolog.New(os.Stdout).With().Timestamp().Str("app", "contract-event-processor").Logger()
 	settings, err := shared.LoadConfig[config.Settings]("settings.yaml")
 	if err != nil {
 		logger.Fatal().Err(err).Msg("couldn't load settings")

@@ -3,9 +3,9 @@ CONTRACT_EVENT_TOPIC: topic.contract.event
 PARTITIONS: 1
 KAFKA_BROKER: localhost:9092
 DB:
-  USER: postgres
-  PASSWORD: postgres
-  DB: postgres
+  USER: dimo
+  PASSWORD: dimo
+  NAME: contract_event_processor
   HOST: localhost
   PORT: 5432
   MAX_OPEN_CONNECTIONS: 5
