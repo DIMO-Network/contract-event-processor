@@ -6,6 +6,18 @@ This service allows users to receive events from DIMO contracts. The content of 
 The Kafka topic can be set in settings.yaml.
 The default number of block confirmations used for this service is 5. This number can be changed in settings.yaml.
 
+## Watching contracts
+
+In addition to the normal settings, the app loads a `config.yaml` file. Here is an example:
+
+```
+contracts:
+  - address: '0x5FbDB2315678afecb367f032d93F642f64180aa3'
+    abi: charts/contract-event-processor/abi/DIMORegistry.json
+  - address: '0xc6e7DF5E7b4f2A278906862b61205850344D4e7d'
+    abi: charts/contract-event-processor/abi/VehicleId.json
+```
+
 ## Getting Set Up
 
 1. If you don't already have an API key, you can request one [here](https://docs.alchemy.com/docs/alchemy-quickstart-guide)
