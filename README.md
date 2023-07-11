@@ -10,7 +10,7 @@ The default number of block confirmations used for this service is 5. This numbe
 
 In addition to the normal settings, the app loads a `config.yaml` file. Here is an example:
 
-```
+```yaml
 contracts:
   - address: '0x5FbDB2315678afecb367f032d93F642f64180aa3'
     abi: charts/contract-event-processor/abi/DIMORegistry.json
