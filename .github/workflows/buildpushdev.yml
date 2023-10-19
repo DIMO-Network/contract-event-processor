@@ -36,7 +36,7 @@ jobs:
           tags: dimozone/contract-event-processor:${{ steps.slug.outputs.sha7 }}, dimozone/contract-event-processor:latest
 
       - name: Update Image Version in the worker HelmChart values.yaml
-        uses: fjogeleit/yaml-update-action@0.11.1
+        uses: fjogeleit/yaml-update-action@main
         with:
           valueFile: 'charts/contract-event-processor/values.yaml'
           propertyPath: 'image.tag'
@@ -45,7 +45,7 @@ jobs:
           message: 'Update Image Version to ${{ steps.slug.outputs.sha7 }}'
 
       - name: Update Image Version in the worker HelmChart values-goerli.yaml
-        uses: fjogeleit/yaml-update-action@0.11.1
+        uses: fjogeleit/yaml-update-action@main
         with:
           valueFile: 'charts/contract-event-processor/values-goerli.yaml'
           propertyPath: 'image.tag'

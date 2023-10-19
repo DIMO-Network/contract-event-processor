@@ -38,7 +38,7 @@ jobs:
           tags: dimozone/contract-event-processor:${{steps.tag.outputs.tag}}
 
       - name: Update Image Version in the related HelmChart values-prod.yaml
-        uses: fjogeleit/yaml-update-action@0.11.1
+        uses: fjogeleit/yaml-update-action@main
         with:
           valueFile: 'charts/contract-event-processor/values-prod.yaml'
           propertyPath: 'image.tag'
@@ -47,7 +47,7 @@ jobs:
           message: 'Update Image Version to ${{steps.tag.outputs.tag}}'
 
       - name: Update Image Version in the related HelmChart values-prod-etheruem.yaml
-        uses: fjogeleit/yaml-update-action@0.11.1
+        uses: fjogeleit/yaml-update-action@main
         with:
           valueFile: 'charts/contract-event-processor/values-prod-ethereum.yaml'
           propertyPath: 'image.tag'
