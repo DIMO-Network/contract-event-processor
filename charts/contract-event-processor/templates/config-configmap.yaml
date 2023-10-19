@@ -4,6 +4,6 @@ metadata:
   name: {{ include "contract-event-processor.fullname" . }}-config-config-map
   namespace: {{ .Release.Namespace }}
   labels:
-{{ include "contract-event-processor.fullname" . | indent 4 }}
+    {{- include "contract-event-processor.labels" . | nindent 4 }}
 data:
   config.yaml: {{ .Values.config | toYaml | quote }}
