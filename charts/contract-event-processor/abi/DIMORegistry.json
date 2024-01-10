@@ -274,6 +274,50 @@
         "anonymous": false,
         "inputs": [
             {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "tokenId",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "attribute",
+                "type": "string"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "info",
+                "type": "string"
+            }
+        ],
+        "name": "AftermarketDeviceAttributeSetDevAdmin",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "adNode",
+                "type": "uint256"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "owner",
+                "type": "address"
+            }
+        ],
+        "name": "AftermarketDeviceNodeBurnedDevAdmin",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
                 "indexed": false,
                 "internalType": "uint256",
                 "name": "aftermarketDeviceNode",
@@ -460,6 +504,45 @@
                 "type": "uint256[]"
             }
         ],
+        "name": "adminBurnAftermarketDevices",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256[]",
+                "name": "tokenIds",
+                "type": "uint256[]"
+            }
+        ],
+        "name": "adminBurnAftermarketDevicesAndDeletePairings",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256[]",
+                "name": "tokenIds",
+                "type": "uint256[]"
+            }
+        ],
+        "name": "adminBurnSyntheticDevicesAndDeletePairings",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256[]",
+                "name": "tokenIds",
+                "type": "uint256[]"
+            }
+        ],
         "name": "adminBurnVehicles",
         "outputs": [],
         "stateMutability": "nonpayable",
@@ -474,6 +557,29 @@
             }
         ],
         "name": "adminBurnVehiclesAndDeletePairings",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "newParentNode",
+                "type": "uint256"
+            },
+            {
+                "internalType": "address",
+                "name": "idProxyAddress",
+                "type": "address"
+            },
+            {
+                "internalType": "uint256[]",
+                "name": "nodeIdList",
+                "type": "uint256[]"
+            }
+        ],
+        "name": "adminChangeParentNode",
         "outputs": [],
         "stateMutability": "nonpayable",
         "type": "function"
@@ -913,6 +1019,31 @@
         "anonymous": false,
         "inputs": [
             {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "manufacturerId",
+                "type": "uint256"
+            },
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "tokenId",
+                "type": "uint256"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "aftermarketDeviceAddress",
+                "type": "address"
+            }
+        ],
+        "name": "AftermarketDeviceAddressReset",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
                 "indexed": false,
                 "internalType": "string",
                 "name": "attribute",
@@ -1252,6 +1383,31 @@
             }
         ],
         "name": "pairAftermarketDeviceSign",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "components": [
+                    {
+                        "internalType": "uint256",
+                        "name": "aftermarketDeviceNodeId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "deviceAddress",
+                        "type": "address"
+                    }
+                ],
+                "internalType": "struct AftermarketDeviceIdAddressPair[]",
+                "name": "adIdAddrs",
+                "type": "tuple[]"
+            }
+        ],
+        "name": "resetAftermarketDeviceAddressByManufacturerBatch",
         "outputs": [],
         "stateMutability": "nonpayable",
         "type": "function"
@@ -2225,6 +2381,25 @@
     {
         "inputs": [
             {
+                "internalType": "uint256",
+                "name": "nodeId",
+                "type": "uint256"
+            }
+        ],
+        "name": "getSyntheticDeviceAddressById",
+        "outputs": [
+            {
+                "internalType": "address",
+                "name": "addr",
+                "type": "address"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
                 "internalType": "address",
                 "name": "addr",
                 "type": "address"
@@ -2904,6 +3079,287 @@
             }
         ],
         "name": "setBaseDataURI",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "dimoStreamrEns",
+                "type": "string"
+            }
+        ],
+        "name": "DimoStreamrEnsSet",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": false,
+                "internalType": "address",
+                "name": "dimoStreamrNode",
+                "type": "address"
+            }
+        ],
+        "name": "DimoStreamrNodeSet",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": false,
+                "internalType": "address",
+                "name": "streamRegistry",
+                "type": "address"
+            }
+        ],
+        "name": "StreamRegistrySet",
+        "type": "event"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "string",
+                "name": "dimoStreamrEns",
+                "type": "string"
+            }
+        ],
+        "name": "setDimoBaseStreamId",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "dimoStreamrNode",
+                "type": "address"
+            }
+        ],
+        "name": "setDimoStreamrNode",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "streamRegistry",
+                "type": "address"
+            }
+        ],
+        "name": "setStreamRegistry",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "user",
+                "type": "address"
+            },
+            {
+                "internalType": "enum IStreamRegistry.PermissionType",
+                "name": "permissionType",
+                "type": "uint8"
+            }
+        ],
+        "name": "NoStreamrPermission",
+        "type": "error"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "string",
+                "name": "streamId",
+                "type": "string"
+            }
+        ],
+        "name": "StreamDoesNotExist",
+        "type": "error"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "vehicleId",
+                "type": "uint256"
+            },
+            {
+                "internalType": "string",
+                "name": "streamId",
+                "type": "string"
+            }
+        ],
+        "name": "VehicleStreamAlreadySet",
+        "type": "error"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "vehicleId",
+                "type": "uint256"
+            }
+        ],
+        "name": "VehicleStreamNotSet",
+        "type": "error"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "streamId",
+                "type": "string"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "subscriber",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "expirationTime",
+                "type": "uint256"
+            }
+        ],
+        "name": "SubscribedToVehicleStream",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "vehicleId",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "streamId",
+                "type": "string"
+            }
+        ],
+        "name": "VehicleStreamSet",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "vehicleId",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "streamId",
+                "type": "string"
+            }
+        ],
+        "name": "VehicleStreamUnset",
+        "type": "event"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "vehicleId",
+                "type": "uint256"
+            }
+        ],
+        "name": "createVehicleStream",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "vehicleId",
+                "type": "uint256"
+            }
+        ],
+        "name": "getVehicleStream",
+        "outputs": [
+            {
+                "internalType": "string",
+                "name": "streamId",
+                "type": "string"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "vehicleId",
+                "type": "uint256"
+            },
+            {
+                "internalType": "string",
+                "name": "streamId",
+                "type": "string"
+            }
+        ],
+        "name": "setVehicleStream",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "vehicleId",
+                "type": "uint256"
+            },
+            {
+                "internalType": "address",
+                "name": "subscriber",
+                "type": "address"
+            },
+            {
+                "internalType": "uint256",
+                "name": "expirationTime",
+                "type": "uint256"
+            }
+        ],
+        "name": "subscribeToVehicleStream",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "vehicleId",
+                "type": "uint256"
+            }
+        ],
+        "name": "unsetVehicleStream",
         "outputs": [],
         "stateMutability": "nonpayable",
         "type": "function"
