@@ -1,6 +1,6 @@
 module github.com/DIMO-Network/contract-event-processor
 
-go 1.19
+go 1.21
 
 require (
 	github.com/Shopify/sarama v1.33.0
