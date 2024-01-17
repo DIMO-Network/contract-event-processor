@@ -41,7 +41,6 @@ type BlockListener struct {
 	client           *ethclient.Client
 	contracts        []common.Address
 	chainID          int64
-	chain            string
 	logger           zerolog.Logger
 	producer         sarama.SyncProducer
 	eventStreamTopic string
