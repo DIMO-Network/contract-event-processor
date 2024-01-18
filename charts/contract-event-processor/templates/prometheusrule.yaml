@@ -9,12 +9,12 @@ spec:
   groups:
   - name: contract-event-processor
     rules:
-    - alert: AlchemyFailures
+    - alert: BlockchainAPIFailures
       expr: sum(rate(contract_event_processor_retry_count{namespace="{{ .Release.Namespace }}"}[2m])) > 0
       for: 2m
       labels:
         severity: critical
         namespace: {{ .Release.Namespace }}
       annotations:
-        summary: "Failing to reach alchemy"
-        description: Calls to alchemy have been failing for more than 2 minutes.'
+        summary: "Failing to reach blockchain"
+        description: Calls to blockchain have been failing for more than 2 minutes.'

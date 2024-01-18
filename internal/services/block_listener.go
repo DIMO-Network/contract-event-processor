@@ -31,10 +31,10 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
-// MaxRetries maximum number of times we will try to call alchemy before returning error
+// MaxRetries maximum number of times we will try to call blockchain api before returning error
 const MaxRetries int = 5
 
-// RetryDuration period to wait before retrying alchemy call
+// RetryDuration period to wait before retrying blockchain api call
 const RetryDuration time.Duration = time.Second * 2
 
 type BlockListener struct {

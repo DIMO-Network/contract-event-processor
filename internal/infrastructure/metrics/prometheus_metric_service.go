@@ -82,7 +82,7 @@ var (
 		prometheus.GaugeOpts{
 			Namespace: "contract_event_processor",
 			Name:      "retry_count",
-			Help:      "number of alchemy call attempts",
+			Help:      "number of blockchain api call attempts",
 		},
 		[]string{"type"},
 	)
