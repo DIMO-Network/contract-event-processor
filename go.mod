@@ -1,6 +1,6 @@
 module github.com/DIMO-Network/contract-event-processor
 
-go 1.19
+go 1.21
 
 require (
 	github.com/Shopify/sarama v1.33.0
@@ -10,11 +10,11 @@ require (
 	github.com/gofiber/fiber/v2 v2.41.0
 	github.com/lib/pq v1.10.7
 	github.com/prometheus/client_golang v1.12.1
+	github.com/stretchr/testify v1.8.0
 	github.com/volatiletech/null/v8 v8.1.2
 	github.com/volatiletech/sqlboiler/v4 v4.14.0
 	github.com/volatiletech/strmangle v0.0.4
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
-	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -50,6 +50,7 @@ require (
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
@@ -64,6 +65,7 @@ require (
 	golang.org/x/net v0.1.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220609144429-65e65417b02f // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 require (

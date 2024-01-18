@@ -31,17 +31,22 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
+// MaxRetries maximum number of times we will try to call alchemy before returning error
+const MaxRetries int = 5
+
+// RetryDuration period to wait before retrying alchemy call
+const RetryDuration time.Duration = time.Second * 2
+
 type BlockListener struct {
-	Client           *ethclient.Client
-	Contracts        []common.Address
-	ChainID          int64
-	Chain            string
-	Logger           zerolog.Logger
-	Producer         sarama.SyncProducer
-	EventStreamTopic string
-	Confirmations    *big.Int
+	client           *ethclient.Client
+	contracts        []common.Address
+	chainID          int64
+	logger           zerolog.Logger
+	producer         sarama.SyncProducer
+	eventStreamTopic string
+	confirmations    *big.Int
+	db               db.Store
 	StartBlock       *big.Int
-	DB               db.Store
 	ABIs             map[common.Address]abi.ABI
 	Limit            int
 	DevTest          bool
@@ -73,6 +78,21 @@ type Block struct {
 	Number *big.Int    `json:"number,omitempty"`
 	Hash   common.Hash `json:"hash,omitempty"`
 	Time   time.Time   `json:"time,omitempty"`
+}
+
+func retry(f func() error, retry int, wait time.Duration) error {
+	e := []error{}
+	for i := 0; i < retry; i++ {
+		err := f()
+		if err == nil {
+			return nil
+		}
+		e = append(e, err)
+
+		time.Sleep(wait)
+
+	}
+	return errors.Join(e...)
 }
 
 func NewBlockListener(s config.Settings, logger zerolog.Logger, producer sarama.SyncProducer, configPath string) (*BlockListener, error) {
@@ -108,15 +128,16 @@ func NewBlockListener(s config.Settings, logger zerolog.Logger, producer sarama.
 	}
 
 	b := BlockListener{
-		Client:           c,
-		EventStreamTopic: s.ContractEventTopic,
-		Logger:           logger,
-		Producer:         producer,
-		Confirmations:    big.NewInt(s.BlockConfirmations),
-		DB:               pdb,
-		ChainID:          chainID.Int64(),
+		client:           c,
+		eventStreamTopic: s.ContractEventTopic,
+		logger:           logger,
+		producer:         producer,
+		confirmations:    big.NewInt(s.BlockConfirmations),
+		db:               pdb,
+		chainID:          chainID.Int64(),
 		StartBlock:       sb,
-		Contracts:        ctrs,
+		contracts:        ctrs,
+		Limit:            10,
 	}
 
 	b.CompileRegistryMap(conf.Contracts)
@@ -128,19 +149,19 @@ func (bl *BlockListener) CompileRegistryMap(cd []contractDetails) {
 	bl.ABIs = make(map[common.Address]abi.ABI)
 	for _, contract := range cd {
 		func() {
-			bl.Contracts = append(bl.Contracts, contract.Address)
+			bl.contracts = append(bl.contracts, contract.Address)
 			f, err := os.Open(contract.ABI)
 			if err != nil {
-				bl.Logger.Fatal().Err(err).Msgf("Couldn't open ABI %s.", contract.ABI)
+				bl.logger.Fatal().Err(err).Msgf("Couldn't open ABI %s.", contract.ABI)
 			}
 			defer f.Close()
 
 			bl.ABIs[contract.Address], err = abi.JSON(f)
 			if err != nil {
-				bl.Logger.Fatal().Err(err).Msgf("Couldn't parse ABI %s.", contract.ABI)
+				bl.logger.Fatal().Err(err).Msgf("Couldn't parse ABI %s.", contract.ABI)
 			}
 
-			bl.Logger.Info().Int64("chain", bl.ChainID).Str("address", contract.Address.String()).Str("abiFile", contract.ABI).Msg("Watching contract.")
+			bl.logger.Info().Int64("chain", bl.chainID).Str("address", contract.Address.String()).Str("abiFile", contract.ABI).Msg("Watching contract.")
 		}()
 	}
 }
@@ -151,17 +172,26 @@ func (bl *BlockListener) PollNewBlocks(ctx context.Context, blockNum *big.Int, c
 
 	latestBlockAdded, err := bl.FetchStartingBlock(blockNum)
 	if err != nil {
-		bl.Logger.Err(err).Int64("chain", bl.ChainID).Msg("error fetching starting block")
+		bl.logger.Err(err).Int64("chain", bl.chainID).Msg("error fetching starting block")
 	}
 
 	for {
 		select {
 		case <-tick.C:
-			head, err := bl.Client.BlockNumber(context.Background())
+			var head uint64
+			err := retry(func() error {
+				var err error
+				head, err = bl.client.BlockNumber(context.Background())
+				if err != nil {
+					metrics.CountRetries.With(prometheus.Labels{"type": "BlockNumber"}).Inc()
+				}
+				return err
+			}, MaxRetries, RetryDuration)
 			if err != nil {
-				bl.Logger.Err(err).Int64("chain", bl.ChainID).Msg("error fetching head")
+				bl.logger.Err(err).Int64("chain", bl.chainID).Msg("error fetching head")
 			}
-			confirmedHead := new(big.Int).Sub(big.NewInt(int64(head)), bl.Confirmations)
+			metrics.CountRetries.With(prometheus.Labels{"type": "BlockNumber"}).Set(0)
+			confirmedHead := new(big.Int).Sub(big.NewInt(int64(head)), bl.confirmations)
 			if latestBlockAdded == nil {
 				metrics.BlocksInQueue.Set(1)
 				c <- confirmedHead
@@ -181,7 +211,7 @@ func (bl *BlockListener) PollNewBlocks(ctx context.Context, blockNum *big.Int, c
 
 			}
 		case <-ctx.Done():
-			bl.Logger.Info().Int64("chain", bl.ChainID).Msg("Closing channel")
+			bl.logger.Info().Int64("chain", bl.chainID).Msg("Closing channel")
 			return nil
 		}
 
@@ -194,9 +224,9 @@ func (bl *BlockListener) FetchStartingBlock(blockNum *big.Int) (*big.Int, error)
 	}
 
 	resp, err := models.Blocks(
-		models.BlockWhere.ChainID.EQ(bl.ChainID),
+		models.BlockWhere.ChainID.EQ(bl.chainID),
 		qm.OrderBy(models.BlockColumns.Number+" DESC")).
-		One(context.Background(), bl.DB.DBS().Reader)
+		One(context.Background(), bl.db.DBS().Reader)
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -211,20 +241,29 @@ func (bl *BlockListener) FetchStartingBlock(blockNum *big.Int) (*big.Int, error)
 // RecordBlock store block number and hash after processing
 func (bl *BlockListener) RecordBlock(head *types.Header) error {
 	processedBlock := models.Block{
-		ChainID: bl.ChainID,
+		ChainID: bl.chainID,
 		Number:  head.Number.Int64(),
 		Hash:    head.Hash().Bytes(),
 	}
-	return processedBlock.Upsert(context.Background(), bl.DB.DBS().Writer, true, []string{"chain_id"}, boil.Whitelist("number", "hash", "processed_at"), boil.Infer())
+	return processedBlock.Upsert(context.Background(), bl.db.DBS().Writer, true, []string{"chain_id"}, boil.Whitelist("number", "hash", "processed_at"), boil.Infer())
 }
 
 func (bl *BlockListener) GetBlockHead(blockNum *big.Int) (*types.Header, error) {
 	timer := prometheus.NewTimer(metrics.AlchemyHeadPollResponseTime)
-	head, err := bl.Client.HeaderByNumber(context.Background(), blockNum)
+	var head *types.Header
+	err := retry(func() error {
+		var err error
+		head, err = bl.client.HeaderByNumber(context.Background(), blockNum)
+		if err != nil {
+			metrics.CountRetries.With(prometheus.Labels{"type": "HeaderByNumber"}).Inc()
+		}
+		return err
+	}, MaxRetries, RetryDuration)
 	if err != nil {
 		metrics.FailedHeadPolls.Inc()
 		return nil, err
 	}
+	metrics.CountRetries.With(prometheus.Labels{"type": "HeaderByNumber"}).Set(0)
 	timer.ObserveDuration()
 	metrics.SuccessfulHeadPolls.Inc()
 
@@ -235,21 +274,30 @@ func (bl *BlockListener) GetFilteredBlockLogs(bHash common.Hash, contracts []com
 	timer := prometheus.NewTimer(metrics.FilteredLogsResponseTime)
 	fil := ethereum.FilterQuery{
 		BlockHash: &bHash,
-		Addresses: bl.Contracts,
+		Addresses: bl.contracts,
 	}
 
-	logs, err := bl.Client.FilterLogs(context.Background(), fil)
+	var logs []types.Log
+	err := retry(func() error {
+		var err error
+		logs, err = bl.client.FilterLogs(context.Background(), fil)
+		if err != nil {
+			metrics.CountRetries.With(prometheus.Labels{"type": "FilterLogs"}).Inc()
+		}
+		return err
+	}, MaxRetries, RetryDuration)
 	if err != nil {
 		metrics.FailedFilteredLogsFetch.Inc()
 		return []types.Log{}, nil
 	}
 	timer.ObserveDuration()
 	metrics.SuccessfulFilteredLogsFetch.Inc()
+	metrics.CountRetries.With(prometheus.Labels{"type": "FilterLogs"}).Set(0)
 	return logs, err
 }
 
 func (bl *BlockListener) ProcessBlock(ctx context.Context, blockNum *big.Int) error {
-	logger := bl.Logger.With().Int64("chainId", bl.ChainID).Int64("blockNumber", blockNum.Int64()).Logger()
+	logger := bl.logger.With().Int64("chainId", bl.chainID).Int64("blockNumber", blockNum.Int64()).Logger()
 
 	logger.Info().Msg("Processing block.")
 	head, err := bl.GetBlockHead(blockNum)
@@ -258,15 +306,23 @@ func (bl *BlockListener) ProcessBlock(ctx context.Context, blockNum *big.Int) er
 	}
 
 	tm := time.Unix(int64(head.Time), 0)
-
-	logs, err := bl.Client.FilterLogs(ctx, ethereum.FilterQuery{
-		FromBlock: blockNum,
-		ToBlock:   blockNum,
-		Addresses: bl.Contracts,
-	})
+	var logs []types.Log
+	err = retry(func() error {
+		var err error
+		logs, err = bl.client.FilterLogs(ctx, ethereum.FilterQuery{
+			FromBlock: blockNum,
+			ToBlock:   blockNum,
+			Addresses: bl.contracts,
+		})
+		if err != nil {
+			metrics.CountRetries.With(prometheus.Labels{"type": "FilterLogs"}).Inc()
+		}
+		return err
+	}, MaxRetries, RetryDuration)
 	if err != nil {
 		return fmt.Errorf("failed retrieving logs: %w", err)
 	}
+	metrics.CountRetries.With(prometheus.Labels{"type": "FilterLogs"}).Set(0)
 
 	for _, vLog := range logs {
 		logger := logger.With().Uint("index", vLog.Index).Str("contract", vLog.Address.Hex()).Logger()
@@ -277,13 +333,13 @@ func (bl *BlockListener) ProcessBlock(ctx context.Context, blockNum *big.Int) er
 
 		contractABI, ok := bl.ABIs[vLog.Address]
 		if !ok {
-			bl.Logger.Warn().Msgf("Unrecognized contract %s.", vLog.Address)
+			logger.Warn().Msgf("Unrecognized contract %s.", vLog.Address)
 			continue
 		}
 
 		eventDef, err := contractABI.EventByID(vLog.Topics[0])
 		if err != nil {
-			bl.Logger.Warn().Err(err).Msgf("Unrecognized event signature %s.", vLog.Topics[0])
+			logger.Warn().Err(err).Msgf("Unrecognized event signature %s.", vLog.Topics[0])
 			continue
 		}
 
@@ -298,14 +354,14 @@ func (bl *BlockListener) ProcessBlock(ctx context.Context, blockNum *big.Int) er
 
 		// Parse the non-indexed fields.
 		if err := bl.ABIs[vLog.Address].UnpackIntoMap(args, eventDef.Name, vLog.Data); err != nil {
-			bl.Logger.Err(err).Msg("Failed to parse log data.")
+			logger.Err(err).Msg("Failed to parse log data.")
 			continue
 		}
 
 		// Parse the indexed fields.
 		err = abi.ParseTopicsIntoMap(args, indexed, vLog.Topics[1:])
 		if err != nil {
-			bl.Logger.Err(err).Msg("Failed to parse topics.")
+			logger.Err(err).Msg("Failed to parse topics.")
 			continue
 		}
 
@@ -313,7 +369,7 @@ func (bl *BlockListener) ProcessBlock(ctx context.Context, blockNum *big.Int) er
 
 		event := shared.CloudEvent[Event]{
 			ID:          ksuid.New().String(),
-			Source:      fmt.Sprintf("chain/%d", bl.ChainID),
+			Source:      fmt.Sprintf("chain/%d", bl.chainID),
 			Subject:     hexutil.Encode(vLog.Address.Bytes()),
 			Type:        "zone.dimo.contract.event",
 			Time:        tm,
@@ -330,7 +386,7 @@ func (bl *BlockListener) ProcessBlock(ctx context.Context, blockNum *big.Int) er
 				TransactionHash: vLog.TxHash,
 				EventSignature:  vLog.Topics[0],
 				Arguments:       args,
-				ChainID:         bl.ChainID,
+				ChainID:         bl.chainID,
 			}}
 
 		eBytes, err := json.Marshal(event)
@@ -339,8 +395,8 @@ func (bl *BlockListener) ProcessBlock(ctx context.Context, blockNum *big.Int) er
 			continue
 		}
 
-		message := &sarama.ProducerMessage{Topic: bl.EventStreamTopic, Key: sarama.StringEncoder(ksuid.New().String()), Value: sarama.ByteEncoder(eBytes)}
-		_, _, err = bl.Producer.SendMessage(message)
+		message := &sarama.ProducerMessage{Topic: bl.eventStreamTopic, Key: sarama.StringEncoder(ksuid.New().String()), Value: sarama.ByteEncoder(eBytes)}
+		_, _, err = bl.producer.SendMessage(message)
 		if err != nil {
 			logger.Err(err).Msg("Failed to emit event.")
 			metrics.KafkaEventMessageFailedToSend.Inc()
@@ -353,7 +409,7 @@ func (bl *BlockListener) ProcessBlock(ctx context.Context, blockNum *big.Int) er
 
 	event := shared.CloudEvent[Block]{
 		ID:     ksuid.New().String(),
-		Source: fmt.Sprintf("chain/%d", bl.ChainID),
+		Source: fmt.Sprintf("chain/%d", bl.chainID),
 		Type:   "zone.dimo.block.complete",
 		Time:   tm,
 		Data: Block{
@@ -364,10 +420,10 @@ func (bl *BlockListener) ProcessBlock(ctx context.Context, blockNum *big.Int) er
 	}
 
 	eBytes, _ := json.Marshal(event)
-	message := &sarama.ProducerMessage{Topic: bl.EventStreamTopic, Key: sarama.StringEncoder(ksuid.New().String()), Value: sarama.ByteEncoder(eBytes)}
-	_, _, err = bl.Producer.SendMessage(message)
+	message := &sarama.ProducerMessage{Topic: bl.eventStreamTopic, Key: sarama.StringEncoder(ksuid.New().String()), Value: sarama.ByteEncoder(eBytes)}
+	_, _, err = bl.producer.SendMessage(message)
 	if err != nil {
-		bl.Logger.Info().Int64("chain", bl.ChainID).Str("Block", head.Number.String()).Msgf("error sending block completion confirmation: %v", err)
+		logger.Info().Int64("chain", bl.chainID).Str("Block", head.Number.String()).Msgf("error sending block completion confirmation: %v", err)
 		return err
 	}
 
@@ -385,7 +441,7 @@ func (bl *BlockListener) ProcessBlock(ctx context.Context, blockNum *big.Int) er
 }
 
 func (bl *BlockListener) ProcessBlocks(ctx context.Context, ch <-chan *big.Int) error {
-	bl.Logger.Info().Msg("chain indexer starting")
+	bl.logger.Info().Msg("chain indexer starting")
 
 	for {
 		select {
@@ -394,7 +450,7 @@ func (bl *BlockListener) ProcessBlocks(ctx context.Context, ch <-chan *big.Int) 
 			// Need to figure out how to retry and eventually kill the pod.
 			err := bl.ProcessBlock(ctx, block)
 			if err != nil {
-				bl.Logger.Err(err).Msg("error processing blocks")
+				bl.logger.Err(err).Msg("error processing blocks")
 			}
 
 			if bl.DevTest && bl.Limit < 0 {

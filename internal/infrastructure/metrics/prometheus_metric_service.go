@@ -78,6 +78,15 @@ var (
 		},
 	)
 
+	CountRetries = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "contract_event_processor",
+			Name:      "retry_count",
+			Help:      "number of alchemy call attempts",
+		},
+		[]string{"type"},
+	)
+
 	AlchemyHeadPollResponseTime = promauto.NewHistogram(
 		prometheus.HistogramOpts{
 			Namespace: "contract_event_processor",
