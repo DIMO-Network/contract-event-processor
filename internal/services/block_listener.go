@@ -273,11 +273,12 @@ func (bl *BlockListener) GetBlockHead(blockNum *big.Int) (*types.Header, error) 
 func (bl *BlockListener) ProcessBlock(ctx context.Context, blockNum *big.Int) error {
 	logger := bl.logger.With().Int64("chainId", bl.chainID).Int64("blockNumber", blockNum.Int64()).Logger()
 
-	logger.Info().Msg("Processing block.")
 	head, err := bl.GetBlockHead(blockNum)
 	if err != nil {
-		return err
+		return fmt.Errorf("error getting block %d header: %w", blockNum, err)
 	}
+
+	logger.Info().Str("hash", head.Hash().Hex()).Msg("Processing block.")
 
 	tm := time.Unix(int64(head.Time), 0)
 	var logs []types.Log
