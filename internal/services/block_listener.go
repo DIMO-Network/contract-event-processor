@@ -288,7 +288,8 @@ func (bl *BlockListener) GetFilteredBlockLogs(bHash common.Hash, contracts []com
 	}, MaxRetries, RetryDuration)
 	if err != nil {
 		metrics.FailedFilteredLogsFetch.Inc()
-		return []types.Log{}, nil
+		bl.logger.Err(err).Str("blockHash", bHash.String()).Int64("chainId", bl.chainID).Msg("failed to filter logs")
+		return []types.Log{}, err
 	}
 	timer.ObserveDuration()
 	metrics.SuccessfulFilteredLogsFetch.Inc()
