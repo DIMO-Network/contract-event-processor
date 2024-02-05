@@ -270,32 +270,6 @@ func (bl *BlockListener) GetBlockHead(blockNum *big.Int) (*types.Header, error) 
 	return head, err
 }
 
-func (bl *BlockListener) GetFilteredBlockLogs(bHash common.Hash, contracts []common.Address) ([]types.Log, error) {
-	timer := prometheus.NewTimer(metrics.FilteredLogsResponseTime)
-	fil := ethereum.FilterQuery{
-		BlockHash: &bHash,
-		Addresses: bl.contracts,
-	}
-
-	var logs []types.Log
-	err := retry(func() error {
-		var err error
-		logs, err = bl.client.FilterLogs(context.Background(), fil)
-		if err != nil {
-			metrics.CountRetries.With(prometheus.Labels{"type": "FilterLogs"}).Inc()
-		}
-		return err
-	}, MaxRetries, RetryDuration)
-	if err != nil {
-		metrics.FailedFilteredLogsFetch.Inc()
-		return []types.Log{}, nil
-	}
-	timer.ObserveDuration()
-	metrics.SuccessfulFilteredLogsFetch.Inc()
-	metrics.CountRetries.With(prometheus.Labels{"type": "FilterLogs"}).Set(0)
-	return logs, err
-}
-
 func (bl *BlockListener) ProcessBlock(ctx context.Context, blockNum *big.Int) error {
 	logger := bl.logger.With().Int64("chainId", bl.chainID).Int64("blockNumber", blockNum.Int64()).Logger()
 
@@ -309,19 +283,24 @@ func (bl *BlockListener) ProcessBlock(ctx context.Context, blockNum *big.Int) er
 	var logs []types.Log
 	err = retry(func() error {
 		var err error
+		timer := prometheus.NewTimer(metrics.FilteredLogsResponseTime)
 		logs, err = bl.client.FilterLogs(ctx, ethereum.FilterQuery{
 			FromBlock: blockNum,
 			ToBlock:   blockNum,
 			Addresses: bl.contracts,
 		})
 		if err != nil {
+			metrics.FailedFilteredLogsFetch.Inc()
 			metrics.CountRetries.With(prometheus.Labels{"type": "FilterLogs"}).Inc()
+		} else {
+			timer.ObserveDuration()
 		}
 		return err
 	}, MaxRetries, RetryDuration)
 	if err != nil {
 		return fmt.Errorf("failed retrieving logs: %w", err)
 	}
+	metrics.SuccessfulFilteredLogsFetch.Inc()
 	metrics.CountRetries.With(prometheus.Labels{"type": "FilterLogs"}).Set(0)
 
 	for _, vLog := range logs {
