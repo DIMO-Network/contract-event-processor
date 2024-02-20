@@ -24,6 +24,8 @@ config:
       abi: abi/DcnRegistry.json
     - address: '0x60627326f55054ea448e0a7bc750785bd65ef757'
       abi: abi/ResolverRegistry.json
+    - address: '0x8129f3cd3eba82136caf5ab87e2321c958da5b63'
+      abi: abi/Reward.json
 ingress:
   enabled: false
 resources:
