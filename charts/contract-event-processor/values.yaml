@@ -38,6 +38,8 @@ config:
       abi: abi/DcnRegistry.json
     - address: '0x7ce3b10571b1ca517def45d5f81850467ec8dd2d'
       abi: abi/ResolverRegistry.json
+    - address: '0x375885164266d48C48abbbb439Be98864Ae62bBE'
+      abi: abi/Reward.json
 env:
   ENVIRONMENT: dev
   MONITORING_PORT: 8888
