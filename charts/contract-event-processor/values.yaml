@@ -40,6 +40,8 @@ config:
       abi: abi/ResolverRegistry.json
     - address: '0x375885164266d48C48abbbb439Be98864Ae62bBE'
       abi: abi/Reward.json
+    - address: '0x5dFe7f440ce475B90932b1eB4E70cc483f76Ae5c'
+      abi: abi/DevLicenseDimo.json
 env:
   ENVIRONMENT: dev
   MONITORING_PORT: 8888
