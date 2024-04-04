@@ -12,9 +12,9 @@ In addition to the normal settings, the app loads a `config.yaml` file. Here is 
 
 ```yaml
 contracts:
-  - address: '0x5FbDB2315678afecb367f032d93F642f64180aa3'
+  - address: "0x5FbDB2315678afecb367f032d93F642f64180aa3"
     abi: charts/contract-event-processor/abi/DIMORegistry.json
-  - address: '0xc6e7DF5E7b4f2A278906862b61205850344D4e7d'
+  - address: "0xc6e7DF5E7b4f2A278906862b61205850344D4e7d"
     abi: charts/contract-event-processor/abi/VehicleId.json
 ```
 
@@ -27,20 +27,24 @@ contracts:
 
 ## Local Deploy
 
-1. `docker compose up -d`
-2. Create a table to track which blocks have already been processed.
+1.  `docker compose up -d`
+2.  Create a table to track which blocks have already been processed.
 
-   `go run ./cmd/contract-event-processor migrate`
+    `go run ./cmd/contract-event-processor migrate`
 
-3. The following will either resume indexing where the process left off during the last run. Or, if the table in the above step is empty, start with the most recently confirmed block (determined by current head minus 5).
+3.  The following will either resume indexing where the process left off during the last run. Or, if the table in the above step is empty, start with the most recently confirmed block (determined by current head minus 5).
 
-   `go run ./cmd/contract-event-processor`
+    `go run ./cmd/contract-event-processor`
 
-4. To start processing from a specific block, run the following where BLOCKNUM is the block number you would like to start from:
+4.  To start processing from a specific block, update the `STARTING_BLOCK` parameter in `settings.yaml`:
 
-   `go run ./cmd override BLOCKNUM`
+    example: `go run ./cmd/contract-event-processor`
 
-   example: `go run ./cmd/contract-event-processor override 37948118`
+          settings.yaml: `STARTING_BLOCK: 54534725`
+
+5.  To prevent the event processor from running continuously, pass `limit` as a command line argument:
+
+    example: `go run ./cmd/contract-event-processor --limit 5`
 
 ## Events
 
