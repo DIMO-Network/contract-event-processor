@@ -2,7 +2,7 @@ replicaCount: 1
 image:
   repository: dimozone/contract-event-processor
   pullPolicy: IfNotPresent
-  tag: 2cea75d
+  tag: 15d9efd
 imagePullSecrets: []
 nameOverride: ''
 fullnameOverride: ''
@@ -34,15 +34,6 @@ config:
       abi: abi/DIMORegistry.json
     - address: '0x325b45949C833986bC98e98a49F3CA5C5c4643B5'
       abi: abi/AftermarketDeviceId.json
-    # Not yet deployed on Amoy.
-    # - address: '0x2daef6ff0e2b61aabf9adde1afdafdb4f0f1e660'
-    #   abi: abi/DcnRegistry.json
-    # - address: '0x7ce3b10571b1ca517def45d5f81850467ec8dd2d'
-    #   abi: abi/ResolverRegistry.json
-    # - address: '0x375885164266d48C48abbbb439Be98864Ae62bBE'
-    #   abi: abi/Reward.json
-    # - address: '0x5dFe7f440ce475B90932b1eB4E70cc483f76Ae5c'
-    #   abi: abi/DevLicenseDimo.json
 env:
   ENVIRONMENT: dev
   MONITORING_PORT: 8888
