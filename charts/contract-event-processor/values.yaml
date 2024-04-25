@@ -24,24 +24,25 @@ cronJob:
   enabled: false
   schedule: 0 0 * * 0
 config:
-  chain: mumbai
+  chain: amoy
   contracts:
-    - address: '0x80ee7ec4493a1d7975ab900f94db25ba7c688201'
+    - address: '0x21cFE003997fB7c2B3cfe5cf71e7833B7B2eCe10'
       abi: abi/Mumbai_OmidV2.json
-    - address: '0x90c4d6113ec88dd4bdf12f26db2b3998fd13a144'
+    - address: '0x45fbCD3ef7361d156e8b16F5538AE36DEdf61Da8'
       abi: abi/VehicleId.json
-    - address: '0x4de1bcf2b7e851e31216fc07989caa902a604784'
+    - address: '0x5eAA326fB2fc97fAcCe6A79A304876daD0F2e96c'
       abi: abi/DIMORegistry.json
-    - address: '0xcf9af64522162da85164a714c23a7705e6e466b3'
+    - address: '0x325b45949C833986bC98e98a49F3CA5C5c4643B5'
       abi: abi/AftermarketDeviceId.json
-    - address: '0x2daef6ff0e2b61aabf9adde1afdafdb4f0f1e660'
-      abi: abi/DcnRegistry.json
-    - address: '0x7ce3b10571b1ca517def45d5f81850467ec8dd2d'
-      abi: abi/ResolverRegistry.json
-    - address: '0x375885164266d48C48abbbb439Be98864Ae62bBE'
-      abi: abi/Reward.json
-    - address: '0x5dFe7f440ce475B90932b1eB4E70cc483f76Ae5c'
-      abi: abi/DevLicenseDimo.json
+    # Not yet deployed on Amoy.
+    # - address: '0x2daef6ff0e2b61aabf9adde1afdafdb4f0f1e660'
+    #   abi: abi/DcnRegistry.json
+    # - address: '0x7ce3b10571b1ca517def45d5f81850467ec8dd2d'
+    #   abi: abi/ResolverRegistry.json
+    # - address: '0x375885164266d48C48abbbb439Be98864Ae62bBE'
+    #   abi: abi/Reward.json
+    # - address: '0x5dFe7f440ce475B90932b1eB4E70cc483f76Ae5c'
+    #   abi: abi/DevLicenseDimo.json
 env:
   ENVIRONMENT: dev
   MONITORING_PORT: 8888
