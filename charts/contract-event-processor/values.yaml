@@ -34,6 +34,8 @@ config:
       abi: abi/DIMORegistry.json
     - address: '0x325b45949C833986bC98e98a49F3CA5C5c4643B5'
       abi: abi/AftermarketDeviceId.json
+    - address: '0xd00e0e788028A8636509c50cF89Df1420b12a5c2'
+      abi: abi/Reward.json
 env:
   ENVIRONMENT: dev
   MONITORING_PORT: 8888
