@@ -36,6 +36,10 @@ config:
       abi: abi/AftermarketDeviceId.json
     - address: '0xd00e0e788028A8636509c50cF89Df1420b12a5c2'
       abi: abi/Reward.json
+    - address: '0x374350Ab806E06217e84a0238150E98788cd26ab'
+      abi: abi/DcnRegistry.json
+    - address: '0x8E498009CaCa11ca9dD6696Bc00eEFcCd51811d5'
+      abi: abi/ResolverRegistry.json
 env:
   ENVIRONMENT: dev
   MONITORING_PORT: 8888
