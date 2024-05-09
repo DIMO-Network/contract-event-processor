@@ -28,6 +28,8 @@ config:
       abi: abi/Reward.json
     - address: '0xc194631194671a44a9eF1c59DF290ef0F3E76EA1'
       abi: abi/DevLicenseDimo.json
+    - address: '0x4804e8D1661cd1a1e5dDdE1ff458A7f878c0aC6D'
+      abi: abi/SyntheticDeviceId.json
 ingress:
   enabled: false
 resources:
