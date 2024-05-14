@@ -15,3 +15,5 @@
 # vendor/
 
 settings.yaml
+
+.DS_Store
