@@ -2,7 +2,7 @@ replicaCount: 1
 image:
   repository: dimozone/contract-event-processor
   pullPolicy: IfNotPresent
-  tag: 6a0fdc2
+  tag: 749771c
 imagePullSecrets: []
 nameOverride: ''
 fullnameOverride: ''
@@ -53,8 +53,8 @@ env:
   DB_PORT: '5432'
   DB_NAME: contract_event_processor
   GAS_PRICE_FACTOR: 2
-  DIMO_REGISTRY_ADDRESS: "0x5eAA326fB2fc97fAcCe6A79A304876daD0F2e96c"
-  RELAY_ADDRESSES: "0x74CB2b8eD0C1789d84Ef701921d1152E592C330C,0x6903B9cE4bFAf9D900E40B9dd2F486a4530cA74f"
+  DIMO_REGISTRY_ADDRESS: '0x5eAA326fB2fc97fAcCe6A79A304876daD0F2e96c'
+  RELAY_ADDRESSES: 0x74CB2b8eD0C1789d84Ef701921d1152E592C330C,0x6903B9cE4bFAf9D900E40B9dd2F486a4530cA74f
 service:
   type: ClusterIP
   ports:
