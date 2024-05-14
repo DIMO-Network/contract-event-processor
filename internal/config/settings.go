@@ -17,4 +17,7 @@ type Settings struct {
 	BlockchainRPCURL string `yaml:"BLOCKCHAIN_RPC_URL"`
 
 	StartingBlock int64 `yaml:"STARTING_BLOCK"`
+
+	DIMORegistryAddress string `yaml:"DIMO_REGISTRY_ADDRESS"`
+	RelayAddresses      string `yaml:"RELAY_ADDRESSES"`
 }

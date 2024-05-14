@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/DIMO-Network/contract-event-processor/internal/config"
@@ -50,6 +52,8 @@ type BlockListener struct {
 	ABIs             map[common.Address]abi.ABI
 	Limit            int
 	DevTest          bool
+	registryAddress  *common.Address
+	relayAddresses   []common.Address
 }
 
 type ChainDetails struct {
@@ -63,15 +67,16 @@ type contractDetails struct {
 }
 
 type Event struct {
-	ChainID         int64          `json:"chainId"`
-	EventName       string         `json:"eventName,omitempty"`
-	Block           Block          `json:"block,omitempty"`
-	Index           uint           `json:"index,omitempty"`
-	Contract        common.Address `json:"contract,omitempty"`
-	TransactionHash common.Hash    `json:"transactionHash,omitempty"`
-	EventSignature  common.Hash    `json:"eventSignature,omitempty"`
-	Arguments       map[string]any `json:"arguments,omitempty"`
-	BlockCompleted  bool           `json:"blockCompleted"`
+	ChainID             int64          `json:"chainId"`
+	EventName           string         `json:"eventName,omitempty"`
+	Block               Block          `json:"block,omitempty"`
+	Index               uint           `json:"index,omitempty"`
+	Contract            common.Address `json:"contract,omitempty"`
+	TransactionHash     common.Hash    `json:"transactionHash,omitempty"`
+	EventSignature      common.Hash    `json:"eventSignature,omitempty"`
+	Arguments           map[string]any `json:"arguments,omitempty"`
+	BlockCompleted      bool           `json:"blockCompleted"`
+	FromMetaTransaction bool           `json:"fromMetaTransaction"`
 }
 
 type Block struct {
@@ -114,6 +119,26 @@ func NewBlockListener(s config.Settings, logger zerolog.Logger, producer sarama.
 		return nil, err
 	}
 
+	var registryAddress *common.Address
+	var relayAddresses []common.Address
+	if s.DIMORegistryAddress != "" {
+		if !common.IsHexAddress(s.DIMORegistryAddress) {
+			return nil, fmt.Errorf("given registry address %q is not an address", s.DIMORegistryAddress)
+		}
+
+		ra := common.HexToAddress(s.DIMORegistryAddress)
+		registryAddress = &ra
+
+		strRelays := strings.Split(s.RelayAddresses, ",")
+		relayAddresses = make([]common.Address, len(strRelays))
+		for i, sa := range strRelays {
+			if !common.IsHexAddress(sa) {
+				return nil, fmt.Errorf("given relay address %q is not an address", sa)
+			}
+			relayAddresses[i] = common.HexToAddress(sa)
+		}
+	}
+
 	if !chainID.IsInt64() {
 		return nil, fmt.Errorf("chain id %s cannot fit in an int64", chainID)
 	}
@@ -138,6 +163,8 @@ func NewBlockListener(s config.Settings, logger zerolog.Logger, producer sarama.
 		StartBlock:       sb,
 		contracts:        ctrs,
 		Limit:            10,
+		registryAddress:  registryAddress,
+		relayAddresses:   relayAddresses,
 	}
 
 	b.CompileRegistryMap(conf.Contracts)
@@ -317,6 +344,24 @@ func (bl *BlockListener) ProcessBlock(ctx context.Context, blockNum *big.Int) er
 			continue
 		}
 
+		fromMetaTx := false
+
+		if bl.registryAddress != nil && len(bl.registryAddress) != 0 && vLog.Address == *bl.registryAddress {
+			tx, _, err := bl.client.TransactionByHash(ctx, vLog.TxHash)
+			if err != nil {
+				return fmt.Errorf("failed retrieving registry transaction %q: %w", vLog.TxHash, err)
+			}
+
+			msg, err := tx.AsMessage(types.NewEIP155Signer(big.NewInt(bl.chainID)), nil)
+			if err != nil {
+				return fmt.Errorf("couldn't convert transaction %q to message: %w", vLog.TxHash, err)
+			}
+
+			if slices.Contains(bl.relayAddresses, msg.From()) {
+				fromMetaTx = true
+			}
+		}
+
 		eventDef, err := contractABI.EventByID(vLog.Topics[0])
 		if err != nil {
 			logger.Warn().Err(err).Msgf("Unrecognized event signature %s.", vLog.Topics[0])
@@ -361,12 +406,13 @@ func (bl *BlockListener) ProcessBlock(ctx context.Context, blockNum *big.Int) er
 					Hash:   head.Hash(),
 					Time:   tm,
 				},
-				Index:           vLog.Index,
-				Contract:        vLog.Address,
-				TransactionHash: vLog.TxHash,
-				EventSignature:  vLog.Topics[0],
-				Arguments:       args,
-				ChainID:         bl.chainID,
+				Index:               vLog.Index,
+				Contract:            vLog.Address,
+				TransactionHash:     vLog.TxHash,
+				EventSignature:      vLog.Topics[0],
+				Arguments:           args,
+				ChainID:             bl.chainID,
+				FromMetaTransaction: fromMetaTx,
 			}}
 
 		eBytes, err := json.Marshal(event)
