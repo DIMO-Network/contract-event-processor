@@ -9,6 +9,8 @@ env:
   ENVIRONMENT: prod
   KAFKA_BROKERS: kafka-prod-dimo-kafka-kafka-brokers:9092
   BLOCK_CONFIRMATIONS: 5
+  DIMO_REGISTRY_ADDRESS: "0xFA8beC73cebB9D88FF88a2f75E7D7312f2Fd39EC"
+  RELAY_ADDRESSES: "0xcce4ef41a67e28c3cf3dbc51a6cd3d004f53acbd,0xE92a1B8078EBc01412ba6Ef878425f35B32D6bBb"
 config:
   chain: polygon
   contracts:
