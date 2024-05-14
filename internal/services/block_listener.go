@@ -352,12 +352,12 @@ func (bl *BlockListener) ProcessBlock(ctx context.Context, blockNum *big.Int) er
 				return fmt.Errorf("failed retrieving registry transaction %q: %w", vLog.TxHash, err)
 			}
 
-			msg, err := tx.AsMessage(types.NewEIP155Signer(big.NewInt(bl.chainID)), nil)
+			sender, err := types.Sender(types.LatestSignerForChainID(big.NewInt(bl.chainID)), tx)
 			if err != nil {
 				return fmt.Errorf("couldn't convert transaction %q to message: %w", vLog.TxHash, err)
 			}
 
-			if slices.Contains(bl.relayAddresses, msg.From()) {
+			if slices.Contains(bl.relayAddresses, sender) {
 				fromMetaTx = true
 			}
 		}
