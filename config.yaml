@@ -4,5 +4,7 @@ contracts:
     abi: charts/contract-event-processor/abi/DIMORegistry.json
   - address: "0xc6e7DF5E7b4f2A278906862b61205850344D4e7d"
     abi: charts/contract-event-processor/abi/VehicleId.json
-  - address: "0x0000000071727De22E5E9d8BAf0edAc6f37da032"
-    abi: charts/contract-event-processor/abi/zerodevEntrypoint.json
+  - address: "0x8104e3Ad430EA6d354d013A6789fDFc71E671c43"
+    abi: charts/contract-event-processor/abi/KernelECDSAValidator.json
+  - address: "0xd990393c670dcce8b4d8f858fb98c9912dbfaa06"
+    abi: charts/contract-event-processor/abi/KernelWebAuthnValidator.json

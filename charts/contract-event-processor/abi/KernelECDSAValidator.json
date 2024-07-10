@@ -1,0 +1,145 @@
+[
+  {
+    "constant": false,
+    "inputs": [{ "indexed": false, "internalType": "address", "name": "smartAccount", "type": "address" }],
+    "name": "AlreadyInitialized",
+    "payable": false,
+    "type": "error"
+  },
+  {
+    "constant": false,
+    "inputs": [{ "indexed": false, "internalType": "address", "name": "target", "type": "address" }],
+    "name": "InvalidTargetAddress",
+    "payable": false,
+    "type": "error"
+  },
+  {
+    "constant": false,
+    "inputs": [{ "indexed": false, "internalType": "address", "name": "smartAccount", "type": "address" }],
+    "name": "NotInitialized",
+    "payable": false,
+    "type": "error"
+  },
+  {
+    "constant": false,
+    "inputs": [
+      { "indexed": true, "internalType": "address", "name": "kernel", "type": "address" },
+      { "indexed": true, "internalType": "address", "name": "owner", "type": "address" }
+    ],
+    "name": "OwnerRegistered",
+    "payable": false,
+    "type": "event"
+  },
+  {
+    "constant": false,
+    "inputs": [{ "indexed": false, "internalType": "address", "name": "", "type": "address" }],
+    "name": "ecdsaValidatorStorage",
+    "outputs": [{ "internalType": "address", "name": "owner", "type": "address" }],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [{ "indexed": false, "internalType": "address", "name": "smartAccount", "type": "address" }],
+    "name": "isInitialized",
+    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [{ "indexed": false, "internalType": "uint256", "name": "typeID", "type": "uint256" }],
+    "name": "isModuleType",
+    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+    "payable": false,
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [
+      { "indexed": false, "internalType": "address", "name": "", "type": "address" },
+      { "indexed": false, "internalType": "bytes32", "name": "hash", "type": "bytes32" },
+      { "indexed": false, "internalType": "bytes", "name": "sig", "type": "bytes" }
+    ],
+    "name": "isValidSignatureWithSender",
+    "outputs": [{ "internalType": "bytes4", "name": "", "type": "bytes4" }],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [{ "indexed": false, "internalType": "bytes", "name": "_data", "type": "bytes" }],
+    "name": "onInstall",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [{ "indexed": false, "internalType": "bytes", "name": "", "type": "bytes" }],
+    "name": "onUninstall",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [
+      { "indexed": false, "internalType": "bytes", "name": "hookData", "type": "bytes" },
+      { "indexed": false, "internalType": "bool", "name": "success", "type": "bool" },
+      { "indexed": false, "internalType": "bytes", "name": "res", "type": "bytes" }
+    ],
+    "name": "postCheck",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [
+      { "indexed": false, "internalType": "address", "name": "msgSender", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "value", "type": "uint256" },
+      { "indexed": false, "internalType": "bytes", "name": "", "type": "bytes" }
+    ],
+    "name": "preCheck",
+    "outputs": [{ "internalType": "bytes", "name": "", "type": "bytes" }],
+    "payable": false,
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [
+      {
+        "components": [
+          { "name": "sender", "type": "address" },
+          { "name": "nonce", "type": "uint256" },
+          { "name": "initCode", "type": "bytes" },
+          { "name": "callData", "type": "bytes" },
+          { "name": "accountGasLimits", "type": "bytes32" },
+          { "name": "preVerificationGas", "type": "uint256" },
+          { "name": "gasFees", "type": "bytes32" },
+          { "name": "paymasterAndData", "type": "bytes" },
+          { "name": "signature", "type": "bytes" }
+        ],
+        "indexed": false,
+        "internalType": "struct PackedUserOperation",
+        "name": "userOp",
+        "type": "tuple"
+      },
+      { "indexed": false, "internalType": "bytes32", "name": "userOpHash", "type": "bytes32" }
+    ],
+    "name": "validateUserOp",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "payable": false,
+    "stateMutability": "payable",
+    "type": "function"
+  }
+]
