@@ -42,6 +42,10 @@ config:
       abi: abi/ResolverRegistry.json
     - address: '0x78513c8CB4D6B6079f813850376bc9c7fc8aE67f'
       abi: abi/SyntheticDeviceId.json
+    - address: '0x8104e3Ad430EA6d354d013A6789fDFc71E671c43'
+      abi: abi/KernelECDSAValidator.json
+    - address: '0xd990393c670dcce8b4d8f858fb98c9912dbfaa06'
+      abi: abi/KernelWebAuthnValidator.json
 env:
   ENVIRONMENT: dev
   MONITORING_PORT: 8888

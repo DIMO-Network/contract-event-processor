@@ -8,5 +8,3 @@ contracts:
     abi: charts/contract-event-processor/abi/KernelECDSAValidator.json
   - address: '0xd990393c670dcce8b4d8f858fb98c9912dbfaa06'
     abi: charts/contract-event-processor/abi/KernelWebAuthnValidator.json
-  - address: '0x0000000071727De22E5E9d8BAf0edAc6f37da032'
-    abi: charts/contract-event-processor/abi/ZerodevEntrypoint.json
