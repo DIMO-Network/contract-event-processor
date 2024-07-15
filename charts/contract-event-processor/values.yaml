@@ -42,6 +42,8 @@ config:
       abi: abi/ResolverRegistry.json
     - address: '0x78513c8CB4D6B6079f813850376bc9c7fc8aE67f'
       abi: abi/SyntheticDeviceId.json
+    - address: '0xdb6c0dBbaf48b9D9Bcf5ca3C45cFF3811D70eD96'
+      abi: abi/DevLicenseDimo.json
 env:
   ENVIRONMENT: dev
   MONITORING_PORT: 8888
