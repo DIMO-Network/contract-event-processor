@@ -28,7 +28,7 @@ config:
       abi: abi/ResolverRegistry.json
     - address: '0x8129f3cd3eba82136caf5ab87e2321c958da5b63'
       abi: abi/Reward.json
-    - address: '0xc194631194671a44a9eF1c59DF290ef0F3E76EA1'
+    - address: '0x9A9D2E717bB005B240094ba761Ff074d392C7C85'
       abi: abi/DevLicenseDimo.json
     - address: '0x4804e8D1661cd1a1e5dDdE1ff458A7f878c0aC6D'
       abi: abi/SyntheticDeviceId.json
