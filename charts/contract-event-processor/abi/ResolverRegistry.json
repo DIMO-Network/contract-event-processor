@@ -1,581 +1,197 @@
 [
-    {
-        "inputs": [],
-        "stateMutability": "nonpayable",
-        "type": "constructor"
-    },
-    {
-        "inputs": [],
-        "name": "UintUtils__InsufficientHexLength",
-        "type": "error"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": true,
-                "internalType": "address",
-                "name": "moduleAddr",
-                "type": "address"
-            },
-            {
-                "indexed": false,
-                "internalType": "bytes4[]",
-                "name": "selectors",
-                "type": "bytes4[]"
-            }
-        ],
-        "name": "ModuleAdded",
-        "type": "event"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": true,
-                "internalType": "address",
-                "name": "moduleAddr",
-                "type": "address"
-            },
-            {
-                "indexed": false,
-                "internalType": "bytes4[]",
-                "name": "selectors",
-                "type": "bytes4[]"
-            }
-        ],
-        "name": "ModuleRemoved",
-        "type": "event"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": true,
-                "internalType": "address",
-                "name": "oldImplementation",
-                "type": "address"
-            },
-            {
-                "indexed": true,
-                "internalType": "address",
-                "name": "newImplementation",
-                "type": "address"
-            },
-            {
-                "indexed": false,
-                "internalType": "bytes4[]",
-                "name": "oldSelectors",
-                "type": "bytes4[]"
-            },
-            {
-                "indexed": false,
-                "internalType": "bytes4[]",
-                "name": "newSelectors",
-                "type": "bytes4[]"
-            }
-        ],
-        "name": "ModuleUpdated",
-        "type": "event"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": true,
-                "internalType": "bytes32",
-                "name": "role",
-                "type": "bytes32"
-            },
-            {
-                "indexed": true,
-                "internalType": "bytes32",
-                "name": "previousAdminRole",
-                "type": "bytes32"
-            },
-            {
-                "indexed": true,
-                "internalType": "bytes32",
-                "name": "newAdminRole",
-                "type": "bytes32"
-            }
-        ],
-        "name": "RoleAdminChanged",
-        "type": "event"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": true,
-                "internalType": "bytes32",
-                "name": "role",
-                "type": "bytes32"
-            },
-            {
-                "indexed": true,
-                "internalType": "address",
-                "name": "account",
-                "type": "address"
-            },
-            {
-                "indexed": true,
-                "internalType": "address",
-                "name": "sender",
-                "type": "address"
-            }
-        ],
-        "name": "RoleGranted",
-        "type": "event"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": true,
-                "internalType": "bytes32",
-                "name": "role",
-                "type": "bytes32"
-            },
-            {
-                "indexed": true,
-                "internalType": "address",
-                "name": "account",
-                "type": "address"
-            },
-            {
-                "indexed": true,
-                "internalType": "address",
-                "name": "sender",
-                "type": "address"
-            }
-        ],
-        "name": "RoleRevoked",
-        "type": "event"
-    },
-    {
-        "stateMutability": "nonpayable",
-        "type": "fallback"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "implementation",
-                "type": "address"
-            },
-            {
-                "internalType": "bytes4[]",
-                "name": "selectors",
-                "type": "bytes4[]"
-            }
-        ],
-        "name": "addModule",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "bytes32",
-                "name": "role",
-                "type": "bytes32"
-            }
-        ],
-        "name": "getRoleAdmin",
-        "outputs": [
-            {
-                "internalType": "bytes32",
-                "name": "",
-                "type": "bytes32"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "bytes32",
-                "name": "role",
-                "type": "bytes32"
-            },
-            {
-                "internalType": "address",
-                "name": "account",
-                "type": "address"
-            }
-        ],
-        "name": "grantRole",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "bytes32",
-                "name": "role",
-                "type": "bytes32"
-            },
-            {
-                "internalType": "address",
-                "name": "account",
-                "type": "address"
-            }
-        ],
-        "name": "hasRole",
-        "outputs": [
-            {
-                "internalType": "bool",
-                "name": "",
-                "type": "bool"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "implementation",
-                "type": "address"
-            },
-            {
-                "internalType": "bytes4[]",
-                "name": "selectors",
-                "type": "bytes4[]"
-            }
-        ],
-        "name": "removeModule",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "bytes32",
-                "name": "role",
-                "type": "bytes32"
-            }
-        ],
-        "name": "renounceRole",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "bytes32",
-                "name": "role",
-                "type": "bytes32"
-            },
-            {
-                "internalType": "address",
-                "name": "account",
-                "type": "address"
-            }
-        ],
-        "name": "revokeRole",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "oldImplementation",
-                "type": "address"
-            },
-            {
-                "internalType": "address",
-                "name": "newImplementation",
-                "type": "address"
-            },
-            {
-                "internalType": "bytes4[]",
-                "name": "oldSelectors",
-                "type": "bytes4[]"
-            },
-            {
-                "internalType": "bytes4[]",
-                "name": "newSelectors",
-                "type": "bytes4[]"
-            }
-        ],
-        "name": "updateModule",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": true,
-                "internalType": "bytes32",
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "indexed": false,
-                "internalType": "string",
-                "name": "name_",
-                "type": "string"
-            }
-        ],
-        "name": "NameChanged",
-        "type": "event"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "bytes32",
-                "name": "node",
-                "type": "bytes32"
-            }
-        ],
-        "name": "name",
-        "outputs": [
-            {
-                "internalType": "string",
-                "name": "name_",
-                "type": "string"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "bytes32",
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "internalType": "string",
-                "name": "name_",
-                "type": "string"
-            }
-        ],
-        "name": "setName",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "dcnManager",
-                "type": "address"
-            }
-        ],
-        "name": "setDcnManager",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "dcnRegistry",
-                "type": "address"
-            }
-        ],
-        "name": "setDcnRegistry",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "dimoToken",
-                "type": "address"
-            }
-        ],
-        "name": "setDimoToken",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "foundation",
-                "type": "address"
-            }
-        ],
-        "name": "setFoundationAddress",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": true,
-                "internalType": "bytes32",
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "indexed": true,
-                "internalType": "uint256",
-                "name": "vehicleId_",
-                "type": "uint256"
-            }
-        ],
-        "name": "VehicleIdChanged",
-        "type": "event"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": true,
-                "internalType": "address",
-                "name": "proxy",
-                "type": "address"
-            }
-        ],
-        "name": "VehicleIdProxySet",
-        "type": "event"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "uint256",
-                "name": "vehicleId_",
-                "type": "uint256"
-            }
-        ],
-        "name": "nodeByVehicleId",
-        "outputs": [
-            {
-                "internalType": "bytes32",
-                "name": "node",
-                "type": "bytes32"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "bytes32",
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "internalType": "uint256",
-                "name": "vehicleId_",
-                "type": "uint256"
-            }
-        ],
-        "name": "resetVehicleId",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "bytes32",
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "internalType": "uint256",
-                "name": "vehicleId_",
-                "type": "uint256"
-            }
-        ],
-        "name": "setVehicleId",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "addr",
-                "type": "address"
-            }
-        ],
-        "name": "setVehicleIdProxyAddress",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "bytes32",
-                "name": "node",
-                "type": "bytes32"
-            }
-        ],
-        "name": "vehicleId",
-        "outputs": [
-            {
-                "internalType": "uint256",
-                "name": "vehicleId_",
-                "type": "uint256"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "bytes[]",
-                "name": "data",
-                "type": "bytes[]"
-            }
-        ],
-        "name": "multiDelegateCall",
-        "outputs": [
-            {
-                "internalType": "bytes[]",
-                "name": "results",
-                "type": "bytes[]"
-            }
-        ],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "bytes[]",
-                "name": "data",
-                "type": "bytes[]"
-            }
-        ],
-        "name": "multiStaticCall",
-        "outputs": [
-            {
-                "internalType": "bytes[]",
-                "name": "results",
-                "type": "bytes[]"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    }
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "moduleAddr",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes4[]",
+        "name": "selectors",
+        "type": "bytes4[]"
+      }
+    ],
+    "name": "ModuleAdded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "moduleAddr",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes4[]",
+        "name": "selectors",
+        "type": "bytes4[]"
+      }
+    ],
+    "name": "ModuleRemoved",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "oldImplementation",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newImplementation",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes4[]",
+        "name": "oldSelectors",
+        "type": "bytes4[]"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes4[]",
+        "name": "newSelectors",
+        "type": "bytes4[]"
+      }
+    ],
+    "name": "ModuleUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "previousAdminRole",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "newAdminRole",
+        "type": "bytes32"
+      }
+    ],
+    "name": "RoleAdminChanged",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "sender",
+        "type": "address"
+      }
+    ],
+    "name": "RoleGranted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "sender",
+        "type": "address"
+      }
+    ],
+    "name": "RoleRevoked",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "node",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "name_",
+        "type": "string"
+      }
+    ],
+    "name": "NameChanged",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "node",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "vehicleId_",
+        "type": "uint256"
+      }
+    ],
+    "name": "VehicleIdChanged",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "proxy",
+        "type": "address"
+      }
+    ],
+    "name": "VehicleIdProxySet",
+    "type": "event"
+  }
 ]
