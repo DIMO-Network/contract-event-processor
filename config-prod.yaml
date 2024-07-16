@@ -10,3 +10,9 @@ contracts:
   - address: 0x80Ee7ec4493A1d7975ab900F94dB25ba7C688201
     chain: mumbai
     abi: abi/tokenMumbai.json
+  - address: 0x8104e3Ad430EA6d354d013A6789fDFc71E671c43
+    chain: polygon
+    abi: abi/KernelECDSAValidator.json
+  - address: 0xd990393c670dcce8b4d8f858fb98c9912dbfaa06
+    chain: polygon
+    abi: abi/KernelWebAuthnValidator.json
