@@ -48,7 +48,7 @@ config:
       abi: abi/KernelECDSAValidator.json
     - address: '0xd990393c670dcce8b4d8f858fb98c9912dbfaa06'
       abi: abi/KernelWebAuthnValidator.json
-    - address: '0x3e78Cb1f68132D34C811dcd7D4a10E0Aad752C3c'
+    - address: '0xaC24E8add57e7Ca8e8B2D0d76f4210Ae53ebDB28'
       abi: abi/Sacd.json
 env:
   ENVIRONMENT: dev
