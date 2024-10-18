@@ -36,7 +36,7 @@ config:
       abi: abi/KernelECDSAValidator.json
     - address: '0xd990393c670dcce8b4d8f858fb98c9912dbfaa06'
       abi: abi/KernelWebAuthnValidator.json
-    - address: '0xEF919b3793deaae1637523d483e3434ae113004E'
+    - address: '0x3c152B5d96769661008Ff404224d6530FCAC766d'
       abi: abi/Sacd.json
 ingress:
   enabled: false
