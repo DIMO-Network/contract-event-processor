@@ -93,9 +93,9 @@
       },
       {
         "name": "licenseAlias",
-        "type": "string",
+        "type": "bytes32",
         "indexed": false,
-        "internalType": "string"
+        "internalType": "bytes32"
       }
     ],
     "anonymous": false
