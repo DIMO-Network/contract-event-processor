@@ -7,7 +7,7 @@ require (
 	github.com/ethereum/go-ethereum v1.14.3
 	github.com/friendsofgo/errors v0.9.2
 	github.com/gofiber/adaptor/v2 v2.2.1
-	github.com/gofiber/fiber/v2 v2.52.4
+	github.com/gofiber/fiber/v2 v2.52.5
 	github.com/lib/pq v1.10.7
 	github.com/prometheus/client_golang v1.12.1
 	github.com/stretchr/testify v1.8.4
