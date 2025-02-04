@@ -6,6 +6,7 @@ image:
 cronJob:
   enabled: false
 env:
+  DB_SSL_MODE: disable
   ENVIRONMENT: prod
   KAFKA_BROKERS: kafka-prod-dimo-kafka-kafka-brokers:9092
   BLOCK_CONFIRMATIONS: 5
