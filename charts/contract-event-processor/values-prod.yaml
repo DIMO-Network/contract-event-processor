@@ -38,6 +38,8 @@ config:
       abi: abi/KernelWebAuthnValidator.json
     - address: '0x3c152B5d96769661008Ff404224d6530FCAC766d'
       abi: abi/Sacd.json
+    - address: '0xB4538A8D6AFab2849Ef78D08D49Dc1cc5AC2eD83'
+      abi: abi/DIMOStaking.json
 ingress:
   enabled: false
 resources:
