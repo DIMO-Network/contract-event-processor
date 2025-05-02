@@ -40,6 +40,8 @@ config:
       abi: abi/Sacd.json
     - address: '0xB4538A8D6AFab2849Ef78D08D49Dc1cc5AC2eD83'
       abi: abi/DIMOStaking.json
+    - address: '0x41799E9Dc893722844E771a1C1cAf3BBc2876132'
+      abi: abi/Connections.json
 ingress:
   enabled: false
 resources:
