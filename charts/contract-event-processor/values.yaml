@@ -52,6 +52,8 @@ config:
       abi: abi/Sacd.json
     - address: '0xA010a42DE263592E631d3DCDC621ae7BFfCca338'
       abi: abi/DIMOStaking.json
+    - address: '0x41799E9Dc893722844E771a1C1cAf3BBc2876132'
+      abi: abi/Connections.json
 env:
   ENVIRONMENT: dev
   MONITORING_PORT: 8888
