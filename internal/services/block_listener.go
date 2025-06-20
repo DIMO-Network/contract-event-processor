@@ -264,7 +264,7 @@ func (bl *BlockListener) FetchStartingBlock(blockNum *big.Int) (*big.Int, error)
 		return nil, err
 	}
 
-	bl.logger.Info().Msgf("Starting from stored block %d.", blockNum)
+	bl.logger.Info().Msgf("Starting from stored block %d.", resp.Number)
 
 	return big.NewInt(resp.Number), nil
 }
