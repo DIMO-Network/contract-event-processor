@@ -39,6 +39,8 @@ func main() {
 		logger.Fatal().Err(err).Msg("couldn't load settings")
 	}
 
+	logger.Info().Str("env", settings.Environment).Int64("startingBlock", settings.StartingBlock).Msg("read settings")
+
 	if settings.DIMORegistryAddress != "" && settings.RelayAddresses != "" {
 		logger.Info().Msgf("DIMO registry address %s, relay addresses %s.", settings.DIMORegistryAddress, settings.RelayAddresses)
 	}
