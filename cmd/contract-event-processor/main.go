@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"syscall"
 
 	"github.com/DIMO-Network/contract-event-processor/internal/config"
@@ -23,6 +24,16 @@ import (
 
 func main() {
 	logger := zerolog.New(os.Stdout).With().Timestamp().Str("app", "contract-event-processor").Logger()
+
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, s := range info.Settings {
+			if s.Key == "vcs.revision" && len(s.Value) == 40 {
+				logger = logger.With().Str("commit", s.Value[:7]).Logger()
+				break
+			}
+		}
+	}
+
 	settings, err := shared.LoadConfig[config.Settings]("settings.yaml")
 	if err != nil {
 		logger.Fatal().Err(err).Msg("couldn't load settings")
