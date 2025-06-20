@@ -145,6 +145,7 @@ func NewBlockListener(s config.Settings, logger zerolog.Logger, producer sarama.
 	var sb *big.Int
 	if s.StartingBlock != 0 {
 		sb = big.NewInt(s.StartingBlock)
+		logger.Info().Msgf("Read STARTING_BLOCK value %d.", s.StartingBlock)
 	}
 
 	ctrs := []common.Address{}
@@ -247,6 +248,7 @@ func (bl *BlockListener) PollNewBlocks(ctx context.Context, blockNum *big.Int, c
 
 func (bl *BlockListener) FetchStartingBlock(blockNum *big.Int) (*big.Int, error) {
 	if blockNum != nil {
+		bl.logger.Info().Msgf("Starting from configured block %d.", blockNum)
 		return blockNum, nil
 	}
 
@@ -261,6 +263,8 @@ func (bl *BlockListener) FetchStartingBlock(blockNum *big.Int) (*big.Int, error)
 		}
 		return nil, err
 	}
+
+	bl.logger.Info().Msgf("Starting from stored block %d.", blockNum)
 
 	return big.NewInt(resp.Number), nil
 }
