@@ -15,7 +15,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/DIMO-Network/shared"
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/prometheus/client_golang/prometheus/promhttp"

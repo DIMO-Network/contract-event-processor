@@ -17,7 +17,7 @@ import (
 	"github.com/DIMO-Network/contract-event-processor/models"
 	"github.com/DIMO-Network/shared"
 	"github.com/DIMO-Network/shared/db"
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"

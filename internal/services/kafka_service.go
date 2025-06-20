@@ -2,7 +2,7 @@ package services
 
 import (
 	"github.com/DIMO-Network/contract-event-processor/internal/config"
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 )
 
 func StartKafkaStream(s config.Settings) (sarama.Client, error) {
