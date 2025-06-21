@@ -17,4 +17,4 @@ spec:
         namespace: {{ .Release.Namespace }}
       annotations:
         summary: "Failing to reach alchemy"
-        description: Calls to alchemy have been failing for more than 2 minutes.'
+        description: Ethereum RPC calls have been failing for more than 2 minutes.'
