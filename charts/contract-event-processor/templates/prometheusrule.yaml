@@ -9,7 +9,7 @@ spec:
   groups:
   - name: contract-event-processor
     rules:
-    - alert: AlchemyFailures
+    - alert: RPCFailures
       expr: sum(rate(contract_event_processor_retry_count{namespace="{{ .Release.Namespace }}"}[2m])) > 0
       for: 2m
       labels:
