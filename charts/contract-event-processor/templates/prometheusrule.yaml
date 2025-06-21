@@ -16,5 +16,5 @@ spec:
         severity: critical
         namespace: {{ .Release.Namespace }}
       annotations:
-        summary: "Failing to reach alchemy"
+        summary: "Failing to reach Ethereum RPC"
         description: Ethereum RPC calls have been failing for more than 2 minutes.'
