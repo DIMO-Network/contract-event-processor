@@ -330,7 +330,7 @@ func (bl *BlockListener) ProcessBlock(ctx context.Context, blockNum *big.Int) er
 		return err
 	}, MaxRetries, RetryDuration)
 	if err != nil {
-		return fmt.Errorf("failed retrieving logs: %w", err)
+		return fmt.Errorf("failed retrieving log for block %d: %w", blockNum, err)
 	}
 	metrics.SuccessfulFilteredLogsFetch.Inc()
 	metrics.CountRetries.With(prometheus.Labels{"type": "FilterLogs"}).Set(0)
