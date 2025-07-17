@@ -54,6 +54,8 @@ config:
       abi: abi/DIMOStaking.json
     - address: '0x41799E9Dc893722844E771a1C1cAf3BBc2876132'
       abi: abi/Connections.json
+    - address: '0x52fD9Dc294066792785CcD85eFB9A0Bd48DE01E4'
+      abi: abi/StorageNode.json
 env:
   ENVIRONMENT: dev
   MONITORING_PORT: 8888

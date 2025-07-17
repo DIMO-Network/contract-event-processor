@@ -379,7 +379,7 @@ func (bl *BlockListener) ProcessBlock(ctx context.Context, blockNum *big.Int) er
 			}
 		}
 
-		args := map[string]any{}
+		args := make(map[string]any)
 
 		// Parse the non-indexed fields.
 		if err := bl.ABIs[vLog.Address].UnpackIntoMap(args, eventDef.Name, vLog.Data); err != nil {
