@@ -42,6 +42,8 @@ config:
       abi: abi/DIMOStaking.json
     - address: '0x41799E9Dc893722844E771a1C1cAf3BBc2876132'
       abi: abi/Connections.json
+    - address: '0xf76eEBa34B19aDb7eEa9E4Eea05243D7E5a30123'
+      abi: abi/StorageNode.json
 ingress:
   enabled: false
 resources:
