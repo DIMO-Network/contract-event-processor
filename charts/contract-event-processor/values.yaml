@@ -26,8 +26,6 @@ cronJob:
 config:
   chain: amoy
   contracts:
-    - address: '0x21cFE003997fB7c2B3cfe5cf71e7833B7B2eCe10'
-      abi: abi/Mumbai_OmidV2.json
     - address: '0x45fbCD3ef7361d156e8b16F5538AE36DEdf61Da8'
       abi: abi/VehicleId.json
     - address: '0x5eAA326fB2fc97fAcCe6A79A304876daD0F2e96c'
