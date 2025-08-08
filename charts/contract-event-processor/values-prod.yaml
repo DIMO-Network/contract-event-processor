@@ -30,10 +30,6 @@ config:
       abi: abi/DevLicenseDimo.json
     - address: '0x4804e8D1661cd1a1e5dDdE1ff458A7f878c0aC6D'
       abi: abi/SyntheticDeviceId.json
-    - address: '0x8104e3Ad430EA6d354d013A6789fDFc71E671c43'
-      abi: abi/KernelECDSAValidator.json
-    - address: '0xd990393c670dcce8b4d8f858fb98c9912dbfaa06'
-      abi: abi/KernelWebAuthnValidator.json
     - address: '0x3c152B5d96769661008Ff404224d6530FCAC766d'
       abi: abi/Sacd.json
     - address: '0xB4538A8D6AFab2849Ef78D08D49Dc1cc5AC2eD83'
