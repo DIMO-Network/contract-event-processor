@@ -18,6 +18,24 @@ contracts:
     abi: charts/contract-event-processor/abi/VehicleId.json
 ```
 
+## Managing ABIs
+
+To optimize performance and reduce processing overhead, we recommend filtering the contract ABIs to include only the events that the processor will actually use. This prevents the service from processing unnecessary events and reduces memory usage.
+
+### Filtering ABIs by Events
+
+You can use the following commands to filter ABI files:
+
+Filter all events from an ABI:
+```bash
+jq -c 'map(select(.type == "event"))' abi.json
+```
+
+Filter specific events by name:
+```bash
+jq -c 'map(select(.type == "event" and .name == "EventName"))' abi.json
+```
+
 ## Getting Set Up
 
 1. If you don't already have an API key, you can request one [here](https://docs.alchemy.com/docs/alchemy-quickstart-guide)
