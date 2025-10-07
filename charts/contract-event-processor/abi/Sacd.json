@@ -34,6 +34,12 @@
             },
             {
                 "indexed": false,
+                "internalType": "uint256",
+                "name": "templateId",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
                 "internalType": "string",
                 "name": "source",
                 "type": "string"

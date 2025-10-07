@@ -41,7 +41,7 @@ jq -c 'map(select(.type == "event" and .name == "EventName"))' abi.json
 1. If you don't already have an API key, you can request one [here](https://docs.alchemy.com/docs/alchemy-quickstart-guide)
 2. Create a `settings.yaml` file; be sure to add your Alchemy API key requested in the step above.
 
-   `cp sample.settings.yaml settings.yaml`
+   `cp settings.sample.yaml settings.yaml`
 
 ## Local Deploy
 
