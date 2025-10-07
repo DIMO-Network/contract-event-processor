@@ -38,7 +38,7 @@ config:
       abi: abi/Connections.json
     - address: '0xf76eEBa34B19aDb7eEa9E4Eea05243D7E5a30123'
       abi: abi/StorageNode.json
-    - address: '0xbfc07085736426295f60baa15dc70743e98fe612'
+    - address: '0x666309ADbeC298bB332c722F0303ce883F895750'
       abi: abi/Template.json
 ingress:
   enabled: false
