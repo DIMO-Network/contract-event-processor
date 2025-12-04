@@ -19,39 +19,39 @@ securityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop:
-      - all
+    - all
 cronJob:
   enabled: false
   schedule: 0 0 * * 0
 config:
   chain: amoy
   contracts:
-    - address: '0x45fbCD3ef7361d156e8b16F5538AE36DEdf61Da8'
-      abi: abi/VehicleId.json
-    - address: '0x5eAA326fB2fc97fAcCe6A79A304876daD0F2e96c'
-      abi: abi/DIMORegistry.json
-    - address: '0x325b45949C833986bC98e98a49F3CA5C5c4643B5'
-      abi: abi/AftermarketDeviceId.json
-    - address: '0xd00e0e788028A8636509c50cF89Df1420b12a5c2'
-      abi: abi/Reward.json
-    - address: '0x374350Ab806E06217e84a0238150E98788cd26ab'
-      abi: abi/DcnRegistry.json
-    - address: '0x8E498009CaCa11ca9dD6696Bc00eEFcCd51811d5'
-      abi: abi/ResolverRegistry.json
-    - address: '0x78513c8CB4D6B6079f813850376bc9c7fc8aE67f'
-      abi: abi/SyntheticDeviceId.json
-    - address: '0xdb6c0dBbaf48b9D9Bcf5ca3C45cFF3811D70eD96'
-      abi: abi/DevLicenseDimo.json
-    - address: '0x4E5F9320b1c7cB3DE5ebDD760aD67375B66cF8a3'
-      abi: abi/Sacd.json
-    - address: '0xA010a42DE263592E631d3DCDC621ae7BFfCca338'
-      abi: abi/DIMOStaking.json
-    - address: '0x41799E9Dc893722844E771a1C1cAf3BBc2876132'
-      abi: abi/Connections.json
-    - address: '0xf76eEBa34B19aDb7eEa9E4Eea05243D7E5a30123'
-      abi: abi/StorageNode.json
-    - address: '0x666309ADbeC298bB332c722F0303ce883F895750'
-      abi: abi/Template.json
+  - address: '0x45fbCD3ef7361d156e8b16F5538AE36DEdf61Da8'
+    abi: abi/VehicleId.json
+  - address: '0x5eAA326fB2fc97fAcCe6A79A304876daD0F2e96c'
+    abi: abi/DIMORegistry.json
+  - address: '0x325b45949C833986bC98e98a49F3CA5C5c4643B5'
+    abi: abi/AftermarketDeviceId.json
+  - address: '0xd00e0e788028A8636509c50cF89Df1420b12a5c2'
+    abi: abi/Reward.json
+  - address: '0x374350Ab806E06217e84a0238150E98788cd26ab'
+    abi: abi/DcnRegistry.json
+  - address: '0x8E498009CaCa11ca9dD6696Bc00eEFcCd51811d5'
+    abi: abi/ResolverRegistry.json
+  - address: '0x78513c8CB4D6B6079f813850376bc9c7fc8aE67f'
+    abi: abi/SyntheticDeviceId.json
+  - address: '0xdb6c0dBbaf48b9D9Bcf5ca3C45cFF3811D70eD96'
+    abi: abi/DevLicenseDimo.json
+  - address: '0x4E5F9320b1c7cB3DE5ebDD760aD67375B66cF8a3'
+    abi: abi/Sacd.json
+  - address: '0xA010a42DE263592E631d3DCDC621ae7BFfCca338'
+    abi: abi/DIMOStaking.json
+  - address: '0x41799E9Dc893722844E771a1C1cAf3BBc2876132'
+    abi: abi/Connections.json
+  - address: '0xf76eEBa34B19aDb7eEa9E4Eea05243D7E5a30123'
+    abi: abi/StorageNode.json
+  - address: '0x666309ADbeC298bB332c722F0303ce883F895750'
+    abi: abi/Template.json
 env:
   ENVIRONMENT: dev
   MONITORING_PORT: 8888
@@ -74,9 +74,9 @@ service:
       targetPort: mon-http
       protocol: TCP
 ports:
-  - name: mon-http
-    containerPort: 8888
-    protocol: TCP
+- name: mon-http
+  containerPort: 8888
+  protocol: TCP
 ingress:
   enabled: false
   className: nginx
@@ -88,18 +88,18 @@ ingress:
     nginx.ingress.kubernetes.io/limit-rps: '3'
     external-dns.alpha.kubernetes.io/hostname: contract-event-processor.dev.dimo.zone
   hosts:
-    - host: contract-event-processor.dev.dimo.zone
-      paths:
-        - path: /
-          pathType: ImplementationSpecific
+  - host: contract-event-processor.dev.dimo.zone
+    paths:
+    - path: /
+      pathType: ImplementationSpecific
   tls: []
 resources:
   limits:
     cpu: 250m
     memory: 384Mi
   requests:
-    cpu: 50m
-    memory: 128Mi
+    cpu: 5m
+    memory: 32Mi
 autoscaling:
   enabled: false
   minReplicas: 1
@@ -113,13 +113,13 @@ podDisruptionBudget:
 kafka:
   clusterName: kafka-dev-dimo-kafka
   topics:
-    - name: topic.contract.event
-      config:
-        segment.ms: '3600000'
-        compression.type: producer
-        cleanup.policy: delete
-        min.compaction.lag.ms: '3600000'
-      partitions: 1
+  - name: topic.contract.event
+    config:
+      segment.ms: '3600000'
+      compression.type: producer
+      cleanup.policy: delete
+      min.compaction.lag.ms: '3600000'
+    partitions: 1
 serviceMonitor:
   enabled: true
   path: /metrics
