@@ -52,6 +52,9 @@ config:
       abi: abi/StorageNode.json
     - address: '0x666309ADbeC298bB332c722F0303ce883F895750'
       abi: abi/Template.json
+    # TODO: replace placeholder with deployed MerkleDistributor address.
+    - address: '0x0000000000000000000000000000000000000000'
+      abi: abi/MerkleDistributor.json
 env:
   ENVIRONMENT: dev
   MONITORING_PORT: 8888
