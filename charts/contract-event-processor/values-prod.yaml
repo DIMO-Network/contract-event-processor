@@ -40,6 +40,13 @@ config:
       abi: abi/StorageNode.json
     - address: '0x666309ADbeC298bB332c722F0303ce883F895750'
       abi: abi/Template.json
+    # TODO: Replace zero address with the deployed MerkleDistributor proxy address (Polygon mainnet).
+    # Set STARTING_BLOCK to the proxy deploy block so no RootSet/PoolAdminSet/SanctionsListSet
+    # events are missed. Deploy this CEP config BEFORE the first setRoot call.
+    # Note: STARTING_BLOCK is global — if origin/pass-start-block merges first, prefer
+    # per-contract startBlock instead so existing contracts are not re-scanned from scratch.
+    - address: '0x0000000000000000000000000000000000000000'
+      abi: abi/MerkleDistributor.json
 ingress:
   enabled: false
 resources:
